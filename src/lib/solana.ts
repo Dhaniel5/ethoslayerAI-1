@@ -1,14 +1,28 @@
-import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
-import { getMint, getAccount } from "@solana/spl-token";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { getMint } from "@solana/spl-token";
 import type { TokenAnalysis, TokenMetric } from "./mockData";
 
-const SOLANA_RPC = "https://rpc.ankr.com/solana";
+const SOLANA_RPCS = [
+  "https://solana.drpc.org",
+  "https://endpoints.omniatech.io/v1/sol/mainnet/public",
+  "https://solana.api.onfinality.io/public",
+];
+
 const METAPLEX_METADATA_PROGRAM = new PublicKey(
   "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 );
 
-function getConnection() {
-  return new Connection(SOLANA_RPC, "confirmed");
+async function getWorkingConnection(): Promise<Connection> {
+  for (const rpc of SOLANA_RPCS) {
+    try {
+      const conn = new Connection(rpc, "confirmed");
+      await conn.getSlot();
+      return conn;
+    } catch {
+      console.warn(`RPC ${rpc} failed, trying next...`);
+    }
+  }
+  throw new Error("All Solana RPC endpoints are unavailable. Please try again later.");
 }
 
 /** Derive the Metaplex metadata PDA for a given mint */
@@ -44,7 +58,7 @@ function decodeMetadata(data: Buffer): { name: string; symbol: string } {
 }
 
 export async function fetchTokenAnalysis(mintAddress: string): Promise<TokenAnalysis> {
-  const connection = getConnection();
+  const connection = await getWorkingConnection();
   const mintPubkey = new PublicKey(mintAddress);
 
   // Fetch mint info, metadata, and largest holders in parallel
