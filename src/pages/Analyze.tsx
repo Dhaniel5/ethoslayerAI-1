@@ -11,12 +11,16 @@ import MetricCard from "@/components/MetricCard";
 import ManipulationAlert from "@/components/ManipulationAlert";
 import WalletBanner from "@/components/WalletBanner";
 import { DEMO_TOKEN, type TokenAnalysis } from "@/lib/mockData";
+import { fetchTokenAnalysis } from "@/lib/solana";
+import { useToast } from "@/hooks/use-toast";
 
 const AnalyzePage = () => {
   const [searchParams] = useSearchParams();
   const [mintAddress, setMintAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<TokenAnalysis | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (searchParams.get("demo") === "true") {
@@ -30,10 +34,20 @@ const AnalyzePage = () => {
     if (!addr.trim()) return;
     setLoading(true);
     setAnalysis(null);
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 2000));
-    setAnalysis({ ...DEMO_TOKEN, mint: addr });
-    setLoading(false);
+    setError(null);
+    try {
+      const result = await fetchTokenAnalysis(addr);
+      setAnalysis(result);
+    } catch (err: any) {
+      console.error("Solana fetch error:", err);
+      const message = err?.message?.includes("Invalid public key")
+        ? "Invalid Solana mint address. Please check and try again."
+        : "Failed to fetch token data. The address may not be a valid SPL token, or RPC rate limits may apply.";
+      setError(message);
+      toast({ title: "Analysis Failed", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -86,6 +100,17 @@ const AnalyzePage = () => {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Error */}
+          {error && !loading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="glass-card p-6 border border-danger/30 text-center"
+            >
+              <p className="text-danger text-sm">{error}</p>
+            </motion.div>
+          )}
 
           {/* Results */}
           <AnimatePresence>
