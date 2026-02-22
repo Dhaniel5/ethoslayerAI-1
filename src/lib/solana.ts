@@ -2,7 +2,7 @@ import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
 import { getMint, getAccount } from "@solana/spl-token";
 import type { TokenAnalysis, TokenMetric } from "./mockData";
 
-const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
+const SOLANA_RPC = "https://rpc.ankr.com/solana";
 const METAPLEX_METADATA_PROGRAM = new PublicKey(
   "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 );
