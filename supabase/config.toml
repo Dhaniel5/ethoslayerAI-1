@@ -1,0 +1,4 @@
+project_id = "djmblorvxnqwrnkmqatg"
+
+[functions.solana-rpc]
+verify_jwt = false
