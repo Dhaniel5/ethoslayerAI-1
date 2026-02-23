@@ -11,6 +11,7 @@ serve(async (req) => {
   }
 
   const HELIUS_API_KEY = Deno.env.get('HELIUS_API_KEY');
+  
   if (!HELIUS_API_KEY) {
     return new Response(JSON.stringify({ error: 'HELIUS_API_KEY not configured' }), {
       status: 500,
@@ -41,15 +42,16 @@ serve(async (req) => {
       return data.result;
     }
 
-    // Fetch mint account info, metadata PDA, and largest token accounts in parallel
-    const METAPLEX_PROGRAM = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
-    
-    // Derive metadata PDA (we'll use getAccountInfo with the PDA address)
-    // For now, use Helius DAS API for metadata if available
-    const [mintAccountInfo, largestAccounts] = await Promise.all([
-      rpcCall('getAccountInfo', [mintAddress, { encoding: 'jsonParsed' }]),
-      rpcCall('getTokenLargestAccounts', [mintAddress]),
-    ]);
+    // Fetch mint account info
+    const mintAccountInfo = await rpcCall('getAccountInfo', [mintAddress, { encoding: 'jsonParsed' }]);
+
+    // Fetch largest accounts separately (can fail for very large tokens)
+    let largestAccounts: any = { value: [] };
+    try {
+      largestAccounts = await rpcCall('getTokenLargestAccounts', [mintAddress]);
+    } catch (e) {
+      console.warn('getTokenLargestAccounts failed (token may have too many holders):', e);
+    }
 
     if (!mintAccountInfo?.value) {
       return new Response(JSON.stringify({ error: 'Invalid mint address or token not found' }), {
