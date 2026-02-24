@@ -105,49 +105,51 @@ serve(async (req) => {
     const top5Pct = totalSupply > 0 ? ((top5Amount / totalSupply) * 100).toFixed(1) : 'N/A';
     const top5Status = Number(top5Pct) > 60 ? 'danger' : Number(top5Pct) > 30 ? 'moderate' : 'healthy';
 
-    // Build metrics
+    // Build metrics with human-centered language
     const metrics = [
       {
         label: 'Mint Authority',
         value: mintAuthorityRevoked ? 'Revoked' : 'Active',
         status: mintAuthorityRevoked ? 'healthy' : 'danger',
         description: mintAuthorityRevoked
-          ? 'No entity can mint additional tokens. Supply is fixed.'
-          : 'Mint authority is active. The authority can create new tokens at any time.',
+          ? 'The total supply of this token is fixed. No one can create additional tokens, which protects holders from unexpected dilution.'
+          : 'This token can increase its total supply through centralized mint control. This means the authority holder could create unlimited new tokens at any time, potentially devaluing existing holdings.',
       },
       {
         label: 'Supply Concentration (Top 5)',
         value: top5Pct === 'N/A' ? 'N/A' : `${top5Pct}%`,
         status: top5Status,
         description: top5Status === 'healthy'
-          ? 'Token supply is well distributed among holders.'
+          ? 'Token ownership is spread across many wallets. This reduces the risk of any single entity manipulating the market or governance decisions.'
           : top5Status === 'moderate'
-          ? `Top 5 holders control ~${top5Pct}% of supply. Moderate centralization risk.`
-          : `Top 5 holders control ~${top5Pct}% of supply. High centralization risk.`,
+          ? `The top 5 wallets hold ~${top5Pct}% of all tokens. This moderate concentration means a small group could influence price through coordinated selling or dominate governance votes.`
+          : `The top 5 wallets control ~${top5Pct}% of all tokens. This extreme concentration gives a few holders outsized power over price, governance, and the project's future direction.`,
       },
       {
         label: 'Freeze Authority',
         value: freezeAuthorityActive ? 'Active' : 'Revoked',
         status: freezeAuthorityActive ? 'danger' : 'healthy',
         description: freezeAuthorityActive
-          ? 'Freeze authority can freeze token accounts. Potential censorship risk.'
-          : 'No freeze authority. Token accounts cannot be frozen.',
+          ? 'The freeze authority can lock any token holder\'s account, preventing them from transferring or selling. This creates a censorship risk where individual holders can be targeted.'
+          : 'No entity can freeze token accounts. Holders have full control over their tokens and can transfer or sell freely without interference.',
       },
       {
         label: 'Token Decimals',
         value: String(decimals),
         status: 'healthy',
-        description: `Token uses ${decimals} decimal places. Standard for SPL tokens.`,
+        description: `This token uses ${decimals} decimal places, which is standard for Solana SPL tokens and allows for precise fractional ownership.`,
       },
       {
         label: 'Metadata',
-        value: name !== mintAddress.slice(0, 8) + '...' ? 'Available' : 'Missing',
-        status: name !== mintAddress.slice(0, 8) + '...' ? 'healthy' : 'danger',
-        description: name !== mintAddress.slice(0, 8) + '...'
-          ? 'Token metadata is available and verifiable.'
-          : 'No metadata found. Limited transparency.',
+        value: hasMetadata ? 'Available' : 'Missing',
+        status: hasMetadata ? 'healthy' : 'danger',
+        description: hasMetadata
+          ? 'Complete token metadata (name, symbol, details) is available on-chain, allowing anyone to verify the project\'s identity and legitimacy.'
+          : 'This token has no verifiable metadata on-chain. Without transparent identifying information, it is difficult to assess the project\'s legitimacy or intentions.',
       },
     ];
+
+    const hasMetadata = name !== mintAddress.slice(0, 8) + '...';
 
     // Integrity score
     let integrityScore = 50;
@@ -156,28 +158,32 @@ serve(async (req) => {
     if (Number(top5Pct) < 30) integrityScore += 15;
     else if (Number(top5Pct) < 60) integrityScore += 5;
     else integrityScore -= 10;
-    if (name !== mintAddress.slice(0, 8) + '...') integrityScore += 10; else integrityScore -= 5;
+    if (hasMetadata) integrityScore += 10; else integrityScore -= 5;
     integrityScore = Math.max(0, Math.min(100, integrityScore));
 
-    // Governance metrics
+    // Governance metrics with human-centered language
     const governanceMetrics = [
       {
         label: 'Governance Program',
         value: 'Not detected',
         status: 'moderate',
-        description: 'No SPL Governance realm detected for this token.',
+        description: 'No on-chain governance program was found for this token. Without formal governance, decisions may be made unilaterally by the project team rather than through community voting.',
       },
       {
         label: 'Holder Count (Top 20)',
         value: String(holders.length),
         status: holders.length >= 15 ? 'healthy' : 'moderate',
-        description: `${holders.length} distinct holders in the top 20.`,
+        description: holders.length >= 15
+          ? `${holders.length} distinct wallets appear in the top 20 holders, suggesting reasonable distribution and a healthier ecosystem.`
+          : `Only ${holders.length} distinct wallets in the top 20. Limited holder diversity increases vulnerability to coordinated actions.`,
       },
       {
         label: 'Top Holder Dominance',
         value: holders[0] ? `${((Number(holders[0].amount) / totalSupply) * 100).toFixed(1)}%` : 'N/A',
         status: holders[0] && (Number(holders[0].amount) / totalSupply) * 100 > 30 ? 'danger' : 'moderate',
-        description: 'Percentage of total supply held by the single largest holder.',
+        description: holders[0] && (Number(holders[0].amount) / totalSupply) * 100 > 30
+          ? 'The largest wallet holds a significant share of total supply. This entity has outsized influence over token price and could cause major market impact through a single transaction.'
+          : 'The largest holder\'s share is within moderate bounds, though continued monitoring is recommended.',
       },
     ];
 
@@ -185,16 +191,16 @@ serve(async (req) => {
       50 - (Number(top5Pct) > 50 ? 20 : 0) + (holders.length >= 15 ? 15 : 0)
     ));
 
-    // Manipulation detection
+    // Manipulation detection with clear explanations
     const topHolderPct = holders[0] ? (Number(holders[0].amount) / totalSupply) * 100 : 0;
     const manipulationRisk = topHolderPct > 50 ? 'High' : topHolderPct > 20 ? 'Moderate' : 'Low';
 
     const manipulationInsights: string[] = [];
-    if (topHolderPct > 30) manipulationInsights.push(`Largest holder controls ${topHolderPct.toFixed(1)}% of supply`);
-    if (Number(top5Pct) > 60) manipulationInsights.push(`Top 5 wallets hold ${top5Pct}% of supply`);
-    if (!mintAuthorityRevoked) manipulationInsights.push('Active mint authority allows unlimited token creation');
-    if (freezeAuthorityActive) manipulationInsights.push('Freeze authority can censor individual token holders');
-    if (manipulationInsights.length === 0) manipulationInsights.push('No major manipulation signals detected');
+    if (topHolderPct > 30) manipulationInsights.push(`The largest wallet controls ${topHolderPct.toFixed(1)}% of total supply. A single large sell-off could crash the token price, causing significant losses for other holders.`);
+    if (Number(top5Pct) > 60) manipulationInsights.push(`The top 5 wallets collectively hold ${top5Pct}% of supply. This level of concentration enables coordinated market manipulation and governance capture.`);
+    if (!mintAuthorityRevoked) manipulationInsights.push('Active mint authority allows unlimited token creation. This means the authority could flood the market with new tokens at any time, diluting the value of existing holdings.');
+    if (freezeAuthorityActive) manipulationInsights.push('The freeze authority can selectively lock individual token accounts. This censorship capability could be used to prevent specific holders from selling during critical moments.');
+    if (manipulationInsights.length === 0) manipulationInsights.push('No major manipulation signals were detected. On-chain indicators suggest standard market behavior at the time of analysis.');
 
     const result = {
       name,
