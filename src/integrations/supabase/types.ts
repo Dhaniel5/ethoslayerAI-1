@@ -14,7 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analysis_history: {
+        Row: {
+          analysis_data: Json | null
+          analyzed_at: string
+          governance_score: number | null
+          id: string
+          integrity_score: number | null
+          manipulation_score: number | null
+          mint_address: string
+          token_name: string | null
+          token_symbol: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis_data?: Json | null
+          analyzed_at?: string
+          governance_score?: number | null
+          id?: string
+          integrity_score?: number | null
+          manipulation_score?: number | null
+          mint_address: string
+          token_name?: string | null
+          token_symbol?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis_data?: Json | null
+          analyzed_at?: string
+          governance_score?: number | null
+          id?: string
+          integrity_score?: number | null
+          manipulation_score?: number | null
+          mint_address?: string
+          token_name?: string | null
+          token_symbol?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ethos_preferences: {
+        Row: {
+          id: string
+          preferences: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          preferences?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          preferences?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      watchlist: {
+        Row: {
+          created_at: string
+          id: string
+          integrity_score: number | null
+          last_updated: string
+          mint_address: string
+          token_name: string | null
+          token_symbol: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          integrity_score?: number | null
+          last_updated?: string
+          mint_address: string
+          token_name?: string | null
+          token_symbol?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          integrity_score?: number | null
+          last_updated?: string
+          mint_address?: string
+          token_name?: string | null
+          token_symbol?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

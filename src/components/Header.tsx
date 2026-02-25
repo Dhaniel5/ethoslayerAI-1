@@ -1,5 +1,8 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LogIn, LogOut, User } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 const navLinks = [
   { to: "/analyze", label: "Analyze" },
@@ -10,6 +13,13 @@ const navLinks = [
 
 const Header = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-card border-t-0 border-x-0 rounded-none">
@@ -34,6 +44,33 @@ const Header = () => {
               {l.label}
             </Link>
           ))}
+
+          {user ? (
+            <div className="flex items-center gap-2 pl-2 border-l border-border/50">
+              <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[120px]">
+                {user.email}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleSignOut}
+                className="gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign Out
+              </Button>
+            </div>
+          ) : (
+            <Link
+              to="/auth"
+              className="pl-2 border-l border-border/50"
+            >
+              <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                <LogIn className="h-3.5 w-3.5" />
+                Sign In
+              </Button>
+            </Link>
+          )}
         </nav>
       </div>
     </header>
