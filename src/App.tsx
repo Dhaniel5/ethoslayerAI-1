@@ -10,6 +10,7 @@ import Watchlist from "./pages/Watchlist";
 import Methodology from "./pages/Methodology";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -21,10 +22,10 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/analyze" element={<Analyze />} />
-          <Route path="/values" element={<Values />} />
-          <Route path="/watchlist" element={<Watchlist />} />
-          <Route path="/methodology" element={<Methodology />} />
+          <Route path="/analyze" element={<ProtectedRoute><Analyze /></ProtectedRoute>} />
+          <Route path="/values" element={<ProtectedRoute><Values /></ProtectedRoute>} />
+          <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
+          <Route path="/methodology" element={<ProtectedRoute><Methodology /></ProtectedRoute>} />
           <Route path="/auth" element={<Auth />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
