@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Eye, EyeOff, Loader2, Mail, Lock, CheckCircle, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Lock, CheckCircle, ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
