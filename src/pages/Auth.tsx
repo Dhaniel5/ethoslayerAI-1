@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Eye, EyeOff, Loader2, Mail, Lock, CheckCircle, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Lock, CheckCircle, ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ const AuthPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || "/";
@@ -23,6 +24,7 @@ const AuthPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
     setLoading(true);
     try {
       if (mode === "signup") {
@@ -49,7 +51,9 @@ const AuthPage = () => {
         navigate(from, { replace: true });
       }
     } catch (err: any) {
-      toast({ title: "Authentication error", description: err.message, variant: "destructive" });
+      const message = err.message || "An unexpected error occurred. Please try again.";
+      setAuthError(message);
+      toast({ title: mode === "signup" ? "Sign up failed" : mode === "forgot" ? "Reset failed" : "Sign in failed", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -77,7 +81,7 @@ const AuthPage = () => {
               {(["signin", "signup"] as Mode[]).map((m) => (
                 <button
                   key={m}
-                  onClick={() => setMode(m)}
+                  onClick={() => { setMode(m); setAuthError(null); }}
                   className={`flex-1 text-sm font-medium py-1.5 rounded-md transition-all ${
                     mode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                   }`}
@@ -102,7 +106,7 @@ const AuthPage = () => {
             ) : mode === "forgot" ? (
               /* Forgot password — form */
               <motion.div key="forgot" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                <button onClick={() => setMode("signin")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
+                <button onClick={() => { setMode("signin"); setAuthError(null); }} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
                   <ArrowLeft className="h-3 w-3" /> Back to Sign In
                 </button>
                 <h2 className="font-display text-lg font-bold text-foreground mb-1">Reset password</h2>
@@ -113,12 +117,18 @@ const AuthPage = () => {
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                       <input
-                        type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                        type="email" required value={email} onChange={(e) => { setEmail(e.target.value); setAuthError(null); }}
                         placeholder="you@example.com"
                         className="flex h-10 w-full rounded-md border border-input bg-muted/30 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                     </div>
                   </div>
+                  {authError && (
+                    <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3">
+                      <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                      <p className="text-xs text-destructive leading-relaxed">{authError}</p>
+                    </div>
+                  )}
                   <Button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     Send Reset Link
@@ -149,7 +159,7 @@ const AuthPage = () => {
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                       <input
-                        type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                        type="email" required value={email} onChange={(e) => { setEmail(e.target.value); setAuthError(null); }}
                         placeholder="you@example.com"
                         className="flex h-10 w-full rounded-md border border-input bg-muted/30 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
@@ -169,7 +179,7 @@ const AuthPage = () => {
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                       <input
                         type={showPassword ? "text" : "password"} required minLength={6}
-                        value={password} onChange={(e) => setPassword(e.target.value)}
+                        value={password} onChange={(e) => { setPassword(e.target.value); setAuthError(null); }}
                         placeholder="Min. 6 characters"
                         className="flex h-10 w-full rounded-md border border-input bg-muted/30 pl-9 pr-10 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
@@ -184,6 +194,12 @@ const AuthPage = () => {
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     {mode === "signin" ? "Sign In" : "Create Account"}
                   </Button>
+                  {authError && (
+                    <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3">
+                      <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                      <p className="text-xs text-destructive leading-relaxed">{authError}</p>
+                    </div>
+                  )}
                 </form>
               </motion.div>
             )}
