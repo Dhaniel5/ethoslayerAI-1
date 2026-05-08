@@ -40,7 +40,7 @@ const AnalyzePage = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    if (analysis) setSaved(isInWatchlist(analysis.mint));
+    if (analysis) isInWatchlist(analysis.mint).then(setSaved);
   }, [analysis]);
 
   const runAnalysis = async (address?: string) => {
@@ -64,11 +64,15 @@ const AnalyzePage = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!analysis) return;
-    saveToWatchlist({ mint: analysis.mint, name: analysis.name, symbol: analysis.symbol, integrityScore: analysis.integrityScore });
-    setSaved(true);
-    toast({ title: "Saved to Watchlist", description: `${analysis.name} has been added to your watchlist.` });
+    try {
+      await saveToWatchlist({ mint: analysis.mint, name: analysis.name, symbol: analysis.symbol, integrityScore: analysis.integrityScore });
+      setSaved(true);
+      toast({ title: "Saved to Watchlist", description: `${analysis.name} has been added to your watchlist.` });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    }
   };
 
   return (
