@@ -123,6 +123,12 @@ const AuthPage = () => {
                       />
                     </div>
                   </div>
+                  {authError && (
+                    <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3">
+                      <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                      <p className="text-xs text-destructive leading-relaxed">{authError}</p>
+                    </div>
+                  )}
                   <Button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     Send Reset Link
