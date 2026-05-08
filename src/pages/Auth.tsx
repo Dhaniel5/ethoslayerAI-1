@@ -106,7 +106,7 @@ const AuthPage = () => {
             ) : mode === "forgot" ? (
               /* Forgot password — form */
               <motion.div key="forgot" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                <button onClick={() => setMode("signin")} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
+                <button onClick={() => { setMode("signin"); setAuthError(null); }} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors">
                   <ArrowLeft className="h-3 w-3" /> Back to Sign In
                 </button>
                 <h2 className="font-display text-lg font-bold text-foreground mb-1">Reset password</h2>
