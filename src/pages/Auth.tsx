@@ -24,6 +24,7 @@ const AuthPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
     setLoading(true);
     try {
       if (mode === "signup") {
@@ -50,7 +51,9 @@ const AuthPage = () => {
         navigate(from, { replace: true });
       }
     } catch (err: any) {
-      toast({ title: "Authentication error", description: err.message, variant: "destructive" });
+      const message = err.message || "An unexpected error occurred. Please try again.";
+      setAuthError(message);
+      toast({ title: mode === "signup" ? "Sign up failed" : mode === "forgot" ? "Reset failed" : "Sign in failed", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
