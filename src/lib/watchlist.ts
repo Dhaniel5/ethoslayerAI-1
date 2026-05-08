@@ -1,4 +1,5 @@
-// Watchlist — persisted in localStorage
+// Watchlist — persisted in Supabase for authenticated users
+import { supabase } from "@/integrations/supabase/client";
 
 export interface WatchlistEntry {
   mint: string;
@@ -6,39 +7,81 @@ export interface WatchlistEntry {
   symbol: string;
   integrityScore: number;
   previousScore: number | null;
-  lastUpdated: string; // ISO
+  lastUpdated: string;
 }
 
-const KEY = "ethoslayer_watchlist";
-
-export function getWatchlist(): WatchlistEntry[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [];
+export async function getWatchlist(): Promise<WatchlistEntry[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from("watchlist")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("last_updated", { ascending: false });
+  if (error || !data) return [];
+  return data.map((r: any) => ({
+    mint: r.mint_address,
+    name: r.token_name ?? "",
+    symbol: r.token_symbol ?? "",
+    integrityScore: r.integrity_score ?? 0,
+    previousScore: r.previous_score ?? null,
+    lastUpdated: r.last_updated,
+  }));
 }
 
-export function saveToWatchlist(entry: Omit<WatchlistEntry, "previousScore" | "lastUpdated">) {
-  const list = getWatchlist();
-  const existing = list.find((e) => e.mint === entry.mint);
+export async function saveToWatchlist(entry: {
+  mint: string; name: string; symbol: string; integrityScore: number;
+}): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: existing } = await supabase
+    .from("watchlist")
+    .select("integrity_score")
+    .eq("user_id", user.id)
+    .eq("mint_address", entry.mint)
+    .maybeSingle();
+
   if (existing) {
-    existing.previousScore = existing.integrityScore;
-    existing.integrityScore = entry.integrityScore;
-    existing.name = entry.name;
-    existing.symbol = entry.symbol;
-    existing.lastUpdated = new Date().toISOString();
+    await supabase
+      .from("watchlist")
+      .update({
+        token_name: entry.name,
+        token_symbol: entry.symbol,
+        integrity_score: entry.integrityScore,
+        last_updated: new Date().toISOString(),
+      })
+      .eq("user_id", user.id)
+      .eq("mint_address", entry.mint);
   } else {
-    list.push({ ...entry, previousScore: null, lastUpdated: new Date().toISOString() });
+    await supabase.from("watchlist").insert({
+      user_id: user.id,
+      mint_address: entry.mint,
+      token_name: entry.name,
+      token_symbol: entry.symbol,
+      integrity_score: entry.integrityScore,
+    });
   }
-  localStorage.setItem(KEY, JSON.stringify(list));
 }
 
-export function removeFromWatchlist(mint: string) {
-  const list = getWatchlist().filter((e) => e.mint !== mint);
-  localStorage.setItem(KEY, JSON.stringify(list));
+export async function removeFromWatchlist(mint: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from("watchlist")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("mint_address", mint);
 }
 
-export function isInWatchlist(mint: string): boolean {
-  return getWatchlist().some((e) => e.mint === mint);
+export async function isInWatchlist(mint: string): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data } = await supabase
+    .from("watchlist")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("mint_address", mint)
+    .maybeSingle();
+  return !!data;
 }

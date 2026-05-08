@@ -26,9 +26,17 @@ const AuthPage = () => {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/` },
+        });
         if (error) throw error;
-        toast({ title: "Check your inbox", description: "We sent a confirmation email. Verify your address to continue." });
+        if (data.session) {
+          navigate(from, { replace: true });
+        } else {
+          toast({ title: "Check your inbox", description: "We sent a confirmation email. Verify your address to continue." });
+        }
       } else if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/reset-password`,
