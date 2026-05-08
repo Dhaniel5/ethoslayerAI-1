@@ -14,12 +14,12 @@ const Watchlist = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setEntries(getWatchlist());
+    getWatchlist().then(setEntries);
   }, []);
 
-  const handleRemove = (mint: string) => {
-    removeFromWatchlist(mint);
-    setEntries(getWatchlist());
+  const handleRemove = async (mint: string) => {
+    await removeFromWatchlist(mint);
+    setEntries(await getWatchlist());
   };
 
   const scoreDelta = (e: WatchlistEntry) => {

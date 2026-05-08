@@ -92,6 +92,8 @@ serve(async (req) => {
       // DAS API not available, use defaults
     }
 
+    const hasMetadata = name !== mintAddress.slice(0, 8) + '...';
+
     // Extract mint info
     const mintAuthorityRevoked = !parsedInfo.mintAuthority;
     const freezeAuthorityActive = !!parsedInfo.freezeAuthority;
@@ -148,8 +150,6 @@ serve(async (req) => {
           : 'This token has no verifiable metadata on-chain. Without transparent identifying information, it is difficult to assess the project\'s legitimacy or intentions.',
       },
     ];
-
-    const hasMetadata = name !== mintAddress.slice(0, 8) + '...';
 
     // Integrity score
     let integrityScore = 50;
