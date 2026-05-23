@@ -30,6 +30,9 @@ const App = () => (
           <Route path="/values" element={<ProtectedRoute><Values /></ProtectedRoute>} />
           <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
           <Route path="/methodology" element={<ProtectedRoute><Methodology /></ProtectedRoute>} />
+          <Route path="/settlement" element={<ProtectedRoute><Settlement /></ProtectedRoute>} />
+          <Route path="/settlement/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
+          <Route path="/settlement/:id" element={<ProtectedRoute><EscrowDetail /></ProtectedRoute>} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="*" element={<NotFound />} />
