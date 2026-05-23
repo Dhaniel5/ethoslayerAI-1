@@ -53,6 +53,142 @@ export type Database = {
         }
         Relationships: []
       }
+      escrow_events: {
+        Row: {
+          amount_audd: number | null
+          created_at: string
+          escrow_id: string
+          event_type: Database["public"]["Enums"]["escrow_event_type"]
+          id: string
+          note: string | null
+          tx_signature: string | null
+        }
+        Insert: {
+          amount_audd?: number | null
+          created_at?: string
+          escrow_id: string
+          event_type: Database["public"]["Enums"]["escrow_event_type"]
+          id?: string
+          note?: string | null
+          tx_signature?: string | null
+        }
+        Update: {
+          amount_audd?: number | null
+          created_at?: string
+          escrow_id?: string
+          event_type?: Database["public"]["Enums"]["escrow_event_type"]
+          id?: string
+          note?: string | null
+          tx_signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escrow_events_escrow_id_fkey"
+            columns: ["escrow_id"]
+            isOneToOne: false
+            referencedRelation: "escrows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escrow_milestones: {
+        Row: {
+          amount_audd: number
+          approved: boolean
+          approved_at: string | null
+          created_at: string
+          escrow_id: string
+          id: string
+          position: number
+          title: string
+        }
+        Insert: {
+          amount_audd: number
+          approved?: boolean
+          approved_at?: string | null
+          created_at?: string
+          escrow_id: string
+          id?: string
+          position?: number
+          title: string
+        }
+        Update: {
+          amount_audd?: number
+          approved?: boolean
+          approved_at?: string | null
+          created_at?: string
+          escrow_id?: string
+          id?: string
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escrow_milestones_escrow_id_fkey"
+            columns: ["escrow_id"]
+            isOneToOne: false
+            referencedRelation: "escrows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escrows: {
+        Row: {
+          amount_audd: number
+          condition_type: string
+          created_at: string
+          description: string | null
+          disputed_at: string | null
+          expires_at: string | null
+          id: string
+          payer_wallet: string
+          receiver_wallet: string
+          released_at: string | null
+          status: Database["public"]["Enums"]["escrow_status"]
+          trust_factors: Json | null
+          trust_level: Database["public"]["Enums"]["trust_level"] | null
+          trust_score: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_audd: number
+          condition_type?: string
+          created_at?: string
+          description?: string | null
+          disputed_at?: string | null
+          expires_at?: string | null
+          id?: string
+          payer_wallet: string
+          receiver_wallet: string
+          released_at?: string | null
+          status?: Database["public"]["Enums"]["escrow_status"]
+          trust_factors?: Json | null
+          trust_level?: Database["public"]["Enums"]["trust_level"] | null
+          trust_score?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_audd?: number
+          condition_type?: string
+          created_at?: string
+          description?: string | null
+          disputed_at?: string | null
+          expires_at?: string | null
+          id?: string
+          payer_wallet?: string
+          receiver_wallet?: string
+          released_at?: string | null
+          status?: Database["public"]["Enums"]["escrow_status"]
+          trust_factors?: Json | null
+          trust_level?: Database["public"]["Enums"]["trust_level"] | null
+          trust_score?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ethos_preferences: {
         Row: {
           id: string
@@ -115,7 +251,24 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      escrow_event_type:
+        | "created"
+        | "locked"
+        | "milestone_approved"
+        | "released"
+        | "disputed"
+        | "cancelled"
+        | "expired"
+        | "note"
+      escrow_status:
+        | "pending"
+        | "locked"
+        | "in_review"
+        | "released"
+        | "disputed"
+        | "expired"
+        | "cancelled"
+      trust_level: "low" | "medium" | "high"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -242,6 +395,27 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      escrow_event_type: [
+        "created",
+        "locked",
+        "milestone_approved",
+        "released",
+        "disputed",
+        "cancelled",
+        "expired",
+        "note",
+      ],
+      escrow_status: [
+        "pending",
+        "locked",
+        "in_review",
+        "released",
+        "disputed",
+        "expired",
+        "cancelled",
+      ],
+      trust_level: ["low", "medium", "high"],
+    },
   },
 } as const
