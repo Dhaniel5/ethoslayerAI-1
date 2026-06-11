@@ -1,8 +1,9 @@
-// Escrow service — Supabase data layer + Solana settlement placeholders.
-// Modular so a real Anchor program can be wired in later without UI changes.
-
+// Escrow service — Supabase data layer + real AUDD SPL transfers on Solana.
+import { Connection, PublicKey } from "@solana/web3.js";
 import { supabase } from "@/integrations/supabase/client";
 import type { TrustResult } from "./trustScore";
+import { ESCROW_VAULT, ESCROW_VAULT_ADDRESS } from "./solanaConfig";
+import { confirmSignature, sendAuddTransfer, type SignAndSend } from "./solanaTx";
 
 export type EscrowStatus =
   | "pending"
@@ -71,19 +72,40 @@ export interface CreateEscrowInput {
   milestones?: { title: string; amount_audd: number }[];
 }
 
-// --- Solana settlement placeholder ---------------------------------------
-// Real implementation would call an Anchor program / SPL token transfer.
-async function solanaLockAUDD(_escrowId: string, _amount: number): Promise<string> {
-  return `sim_lock_${Math.random().toString(36).slice(2, 10)}`;
+export interface ChainContext {
+  connection: Connection;
+  signer: SignAndSend;
 }
-async function solanaReleaseAUDD(_escrowId: string, _amount: number): Promise<string> {
-  return `sim_release_${Math.random().toString(36).slice(2, 10)}`;
-}
-// -------------------------------------------------------------------------
 
-export async function createEscrow(input: CreateEscrowInput): Promise<EscrowRow> {
+function assertVault() {
+  if (!ESCROW_VAULT) throw new Error("Escrow vault address is not configured.");
+}
+
+/**
+ * Create an escrow by locking AUDD: payer signs an SPL transfer to the vault.
+ * The connected wallet must be the payer.
+ */
+export async function createEscrow(
+  input: CreateEscrowInput,
+  chain: ChainContext,
+): Promise<EscrowRow> {
+  assertVault();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Sign in required");
+
+  const signerKey = chain.signer.publicKey.toBase58();
+  if (signerKey !== input.payer_wallet.trim()) {
+    throw new Error("Connected wallet does not match the payer wallet.");
+  }
+
+  // 1. Send & confirm on-chain transfer payer → vault FIRST. No DB row if chain fails.
+  const sig = await sendAuddTransfer(
+    chain.connection,
+    chain.signer,
+    ESCROW_VAULT!,
+    input.amount_audd,
+  );
+  await confirmSignature(chain.connection, sig);
 
   const hasMilestones = !!input.milestones && input.milestones.length > 0;
 
@@ -96,7 +118,7 @@ export async function createEscrow(input: CreateEscrowInput): Promise<EscrowRow>
       amount_audd: input.amount_audd,
       description: input.description ?? null,
       condition_type: hasMilestones ? "milestones" : "approval",
-      status: "pending",
+      status: "locked",
       trust_score: input.trust.score,
       trust_level: input.trust.level,
       trust_factors: input.trust.factors,
@@ -117,15 +139,120 @@ export async function createEscrow(input: CreateEscrowInput): Promise<EscrowRow>
     if (mErr) throw mErr;
   }
 
-  // Simulate locking on Solana
-  const sig = await solanaLockAUDD(escrow.id, input.amount_audd);
-  await supabase.from("escrows").update({ status: "locked" }).eq("id", escrow.id);
   await supabase.from("escrow_events").insert([
     { escrow_id: escrow.id, event_type: "created", amount_audd: input.amount_audd },
-    { escrow_id: escrow.id, event_type: "locked", amount_audd: input.amount_audd, tx_signature: sig },
+    {
+      escrow_id: escrow.id,
+      event_type: "locked",
+      amount_audd: input.amount_audd,
+      tx_signature: sig,
+      note: `Locked to vault ${ESCROW_VAULT_ADDRESS}`,
+    },
   ]);
 
-  return { ...escrow, status: "locked" } as EscrowRow;
+  return escrow as EscrowRow;
+}
+
+/**
+ * Release locked AUDD from the vault to the receiver.
+ * The connected wallet MUST be the vault wallet (it holds the funds).
+ */
+export async function releaseEscrow(
+  escrowId: string,
+  amount: number,
+  receiverWallet: string,
+  chain: ChainContext,
+) {
+  assertVault();
+  if (chain.signer.publicKey.toBase58() !== ESCROW_VAULT_ADDRESS) {
+    throw new Error(
+      `Release must be signed by the vault wallet (${ESCROW_VAULT_ADDRESS.slice(0, 8)}…). Connect that wallet to release funds.`,
+    );
+  }
+  const receiver = new PublicKey(receiverWallet);
+
+  const sig = await sendAuddTransfer(chain.connection, chain.signer, receiver, amount);
+  await confirmSignature(chain.connection, sig);
+
+  await supabase
+    .from("escrows")
+    .update({ status: "released", released_at: new Date().toISOString() })
+    .eq("id", escrowId);
+  await supabase.from("escrow_events").insert({
+    escrow_id: escrowId,
+    event_type: "released",
+    amount_audd: amount,
+    tx_signature: sig,
+  });
+  return sig;
+}
+
+export async function approveMilestone(
+  escrowId: string,
+  milestoneId: string,
+  receiverWallet: string,
+  chain: ChainContext,
+) {
+  assertVault();
+  if (chain.signer.publicKey.toBase58() !== ESCROW_VAULT_ADDRESS) {
+    throw new Error(
+      `Milestone release must be signed by the vault wallet (${ESCROW_VAULT_ADDRESS.slice(0, 8)}…).`,
+    );
+  }
+
+  const { data: m, error: mErr } = await supabase
+    .from("escrow_milestones")
+    .select("*")
+    .eq("id", milestoneId)
+    .single();
+  if (mErr) throw mErr;
+
+  const receiver = new PublicKey(receiverWallet);
+  const sig = await sendAuddTransfer(chain.connection, chain.signer, receiver, Number(m.amount_audd));
+  await confirmSignature(chain.connection, sig);
+
+  await supabase
+    .from("escrow_milestones")
+    .update({ approved: true, approved_at: new Date().toISOString() })
+    .eq("id", milestoneId);
+
+  await supabase.from("escrow_events").insert({
+    escrow_id: escrowId,
+    event_type: "milestone_approved",
+    amount_audd: m.amount_audd,
+    tx_signature: sig,
+    note: m.title,
+  });
+
+  const { data: remaining } = await supabase
+    .from("escrow_milestones")
+    .select("id")
+    .eq("escrow_id", escrowId)
+    .eq("approved", false);
+  if (!remaining || remaining.length === 0) {
+    await supabase
+      .from("escrows")
+      .update({ status: "released", released_at: new Date().toISOString() })
+      .eq("id", escrowId);
+    await supabase.from("escrow_events").insert({
+      escrow_id: escrowId,
+      event_type: "released",
+      note: "All milestones approved",
+    });
+  }
+  return sig;
+}
+
+export async function disputeEscrow(escrowId: string, reason: string) {
+  await supabase
+    .from("escrows")
+    .update({ status: "disputed", disputed_at: new Date().toISOString() })
+    .eq("id", escrowId);
+  await supabase.from("escrow_events").insert({
+    escrow_id: escrowId,
+    event_type: "disputed",
+    note: reason,
+  });
 }
 
 export async function listEscrows(): Promise<EscrowRow[]> {
@@ -150,68 +277,6 @@ export async function getEscrow(id: string) {
     milestones: (milestones ?? []) as MilestoneRow[],
     events: (events ?? []) as EventRow[],
   };
-}
-
-export async function approveMilestone(escrowId: string, milestoneId: string) {
-  const { data: m, error } = await supabase
-    .from("escrow_milestones")
-    .update({ approved: true, approved_at: new Date().toISOString() })
-    .eq("id", milestoneId)
-    .select()
-    .single();
-  if (error) throw error;
-  const sig = await solanaReleaseAUDD(escrowId, m.amount_audd);
-  await supabase.from("escrow_events").insert({
-    escrow_id: escrowId,
-    event_type: "milestone_approved",
-    amount_audd: m.amount_audd,
-    tx_signature: sig,
-    note: m.title,
-  });
-
-  // If all approved, mark escrow released
-  const { data: remaining } = await supabase
-    .from("escrow_milestones")
-    .select("id")
-    .eq("escrow_id", escrowId)
-    .eq("approved", false);
-  if (!remaining || remaining.length === 0) {
-    await supabase
-      .from("escrows")
-      .update({ status: "released", released_at: new Date().toISOString() })
-      .eq("id", escrowId);
-    await supabase.from("escrow_events").insert({
-      escrow_id: escrowId,
-      event_type: "released",
-      note: "All milestones approved",
-    });
-  }
-}
-
-export async function releaseEscrow(escrowId: string, amount: number) {
-  const sig = await solanaReleaseAUDD(escrowId, amount);
-  await supabase
-    .from("escrows")
-    .update({ status: "released", released_at: new Date().toISOString() })
-    .eq("id", escrowId);
-  await supabase.from("escrow_events").insert({
-    escrow_id: escrowId,
-    event_type: "released",
-    amount_audd: amount,
-    tx_signature: sig,
-  });
-}
-
-export async function disputeEscrow(escrowId: string, reason: string) {
-  await supabase
-    .from("escrows")
-    .update({ status: "disputed", disputed_at: new Date().toISOString() })
-    .eq("id", escrowId);
-  await supabase.from("escrow_events").insert({
-    escrow_id: escrowId,
-    event_type: "disputed",
-    note: reason,
-  });
 }
 
 export async function listAllEvents(): Promise<(EventRow & { escrow: EscrowRow })[]> {
