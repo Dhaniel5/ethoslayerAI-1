@@ -26,11 +26,17 @@ export default function EscrowDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { connection } = useConnection();
+  const { publicKey, signTransaction, connected } = useWallet();
   const [escrow, setEscrow] = useState<EscrowRow | null>(null);
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [disputeReason, setDisputeReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const isVaultConnected =
+    connected && publicKey?.toBase58() === ESCROW_VAULT_ADDRESS;
 
   const load = async () => {
     if (!id) return;
@@ -62,23 +68,34 @@ export default function EscrowDetail() {
     );
   }
 
+  const requireVaultSigner = () => {
+    if (!isVaultConnected || !publicKey || !signTransaction) {
+      throw new Error(`Connect the vault wallet (${shortAddr(ESCROW_VAULT_ADDRESS)}) to sign.`);
+    }
+    return { connection, signer: { publicKey, signTransaction } };
+  };
+
   const handleRelease = async () => {
+    setActionLoading(true);
     try {
-      await releaseEscrow(escrow.id, Number(escrow.amount_audd));
-      toast({ title: "Funds released", description: "AUDD has been released to the receiver." });
+      const chain = requireVaultSigner();
+      await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain);
+      toast({ title: "Funds released", description: "AUDD transferred on-chain to the receiver." });
       load();
     } catch (e: any) {
       toast({ title: "Release failed", description: e.message, variant: "destructive" });
-    }
+    } finally { setActionLoading(false); }
   };
   const handleApproveMilestone = async (m: MilestoneRow) => {
+    setActionLoading(true);
     try {
-      await approveMilestone(escrow.id, m.id);
-      toast({ title: "Milestone approved", description: `${m.amount_audd} AUDD released.` });
+      const chain = requireVaultSigner();
+      await approveMilestone(escrow.id, m.id, escrow.receiver_wallet, chain);
+      toast({ title: "Milestone approved", description: `${m.amount_audd} AUDD released on-chain.` });
       load();
     } catch (e: any) {
       toast({ title: "Approval failed", description: e.message, variant: "destructive" });
-    }
+    } finally { setActionLoading(false); }
   };
   const handleDispute = async () => {
     try {
