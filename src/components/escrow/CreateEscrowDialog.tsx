@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, ShieldCheck, Loader2, X, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, Loader2, X, AlertCircle, CheckCircle2, Wallet } from "lucide-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { computeTrustScore, suggestSaferTerms, isValidSolanaAddress } from "@/lib/trustScore";
 import { createEscrow } from "@/lib/escrow";
+import { ESCROW_VAULT_ADDRESS } from "@/lib/solanaConfig";
 import { TrustBadge } from "./StatusBadges";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,6 +24,9 @@ interface Props {
 
 export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Props) {
   const { toast } = useToast();
+  const { connection } = useConnection();
+  const { publicKey, signTransaction, connected } = useWallet();
+  const { setVisible } = useWalletModal();
   const [payer, setPayer] = useState("");
   const [receiver, setReceiver] = useState("");
   const [amount, setAmount] = useState("");
@@ -31,6 +37,11 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
     { title: "", amount: "" },
   ]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Auto-fill payer from connected wallet.
+  useEffect(() => {
+    if (publicKey && !payer) setPayer(publicKey.toBase58());
+  }, [publicKey, payer]);
 
   const amountNum = Number(amount) || 0;
 
@@ -66,31 +77,37 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
     setMilestones([{ title: "", amount: "" }]);
   };
 
+  const walletMatchesPayer = connected && publicKey?.toBase58() === payer;
+
   const canSubmit =
     isValidSolanaAddress(payer) &&
     isValidSolanaAddress(receiver) &&
     amountNum > 0 &&
     !milestoneMismatch &&
+    walletMatchesPayer &&
     !submitting;
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !publicKey || !signTransaction) return;
     setSubmitting(true);
     try {
-      await createEscrow({
-        payer_wallet: payer,
-        receiver_wallet: receiver,
-        amount_audd: amountNum,
-        description: description.trim() || undefined,
-        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
-        trust,
-        milestones: useMilestones
-          ? milestones
-              .filter((m) => m.title.trim() && Number(m.amount) > 0)
-              .map((m) => ({ title: m.title.trim(), amount_audd: Number(m.amount) }))
-          : undefined,
-      });
-      toast({ title: "Escrow created", description: "AUDD locked in settlement contract." });
+      await createEscrow(
+        {
+          payer_wallet: payer,
+          receiver_wallet: receiver,
+          amount_audd: amountNum,
+          description: description.trim() || undefined,
+          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+          trust,
+          milestones: useMilestones
+            ? milestones
+                .filter((m) => m.title.trim() && Number(m.amount) > 0)
+                .map((m) => ({ title: m.title.trim(), amount_audd: Number(m.amount) }))
+            : undefined,
+        },
+        { connection, signer: { publicKey, signTransaction } },
+      );
+      toast({ title: "Escrow created", description: "AUDD locked on-chain in the vault." });
       reset();
       onOpenChange(false);
       onCreated();
