@@ -1,8 +1,12 @@
 import { motion } from "framer-motion";
-import { Wallet, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Wallet } from "lucide-react";
+import WalletConnectButton from "@/components/WalletConnectButton";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { explorerAddrUrl } from "@/lib/solanaConfig";
 
 const WalletBanner = () => {
+  const { publicKey } = useWallet();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -14,15 +18,29 @@ const WalletBanner = () => {
         <Wallet className="h-6 w-6 text-primary" />
       </div>
       <div className="flex-1 text-center sm:text-left">
-        <h4 className="font-display font-semibold text-foreground">Connect Your Wallet</h4>
+        <h4 className="font-display font-semibold text-foreground">
+          {publicKey ? "Wallet connected" : "Connect Your Wallet"}
+        </h4>
         <p className="text-sm text-muted-foreground">
-          Analyze your portfolio integrity and governance exposure across all holdings.
+          {publicKey ? (
+            <>
+              Signed in as{" "}
+              <a
+                href={explorerAddrUrl(publicKey.toBase58())}
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono text-primary hover:underline"
+              >
+                {publicKey.toBase58().slice(0, 8)}…{publicKey.toBase58().slice(-4)}
+              </a>
+              . You can now create AUDD escrows.
+            </>
+          ) : (
+            "Analyze your portfolio integrity and create AUDD settlement contracts on Solana."
+          )}
         </p>
       </div>
-      <Button className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 shrink-0">
-        Connect Wallet
-        <ArrowRight className="h-4 w-4" />
-      </Button>
+      <WalletConnectButton size="default" variant="default" />
     </motion.div>
   );
 };
