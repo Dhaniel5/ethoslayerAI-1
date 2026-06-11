@@ -154,49 +154,59 @@ export default function EscrowDetail() {
                 </div>
 
                 {/* Actions */}
-                <div className="mt-6 flex gap-2 flex-wrap">
-                  {isReleasable && escrow.condition_type === "approval" && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button className="gap-1.5"><CheckCircle2 className="h-4 w-4" /> Approve Release</Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Release {Number(escrow.amount_audd).toLocaleString()} AUDD?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will transfer AUDD from the escrow contract to the receiver wallet on Solana. This action is irreversible.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleRelease}>Confirm release</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                <div className="mt-6 space-y-2">
+                  {isReleasable && !isVaultConnected && (
+                    <p className="text-xs text-amber-300">
+                      Release requires the vault wallet ({shortAddr(ESCROW_VAULT_ADDRESS)}). Connect it via the wallet button to release funds.
+                    </p>
                   )}
+                  <div className="flex gap-2 flex-wrap">
+                    {isReleasable && escrow.condition_type === "approval" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button className="gap-1.5" disabled={!isVaultConnected || actionLoading}>
+                            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                            Approve Release
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Release {Number(escrow.amount_audd).toLocaleString()} AUDD?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This signs an on-chain SPL transfer from the vault to the receiver. Irreversible once confirmed.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleRelease}>Confirm release</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
 
-                  {isDisputable && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10">
-                          <AlertTriangle className="h-4 w-4" /> Raise Dispute
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Raise a dispute</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Release will be paused until the dispute is resolved. Briefly explain the issue.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <Textarea value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} placeholder="Reason for dispute…" rows={3} />
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleDispute}>Submit dispute</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
+                    {isDisputable && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10">
+                            <AlertTriangle className="h-4 w-4" /> Raise Dispute
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Raise a dispute</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Release will be paused until the dispute is resolved. Briefly explain the issue.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <Textarea value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} placeholder="Reason for dispute…" rows={3} />
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDispute}>Submit dispute</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -220,7 +230,12 @@ export default function EscrowDetail() {
                         <p className="text-xs text-muted-foreground">{Number(m.amount_audd).toLocaleString()} AUDD</p>
                       </div>
                       {!m.approved && isReleasable && (
-                        <Button size="sm" variant="outline" onClick={() => handleApproveMilestone(m)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleApproveMilestone(m)}
+                          disabled={!isVaultConnected || actionLoading}
+                        >
                           Approve &amp; release
                         </Button>
                       )}
@@ -273,7 +288,17 @@ export default function EscrowDetail() {
                         {ev.amount_audd && <span className="text-muted-foreground ml-1">· {Number(ev.amount_audd).toLocaleString()} AUDD</span>}
                       </p>
                       {ev.note && <p className="text-xs text-muted-foreground">{ev.note}</p>}
-                      {ev.tx_signature && <p className="text-xs text-muted-foreground/70 font-mono">tx: {ev.tx_signature}</p>}
+                      {ev.tx_signature && (
+                        <a
+                          href={explorerTxUrl(ev.tx_signature)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-primary/80 hover:text-primary font-mono inline-flex items-center gap-1 mt-0.5"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          tx {ev.tx_signature.slice(0, 8)}…{ev.tx_signature.slice(-6)}
+                        </a>
+                      )}
                     </div>
                     <span className="text-xs text-muted-foreground shrink-0">{new Date(ev.created_at).toLocaleString()}</span>
                   </div>
