@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, History as HistoryIcon, Loader2 } from "lucide-react";
+import { ArrowLeft, History as HistoryIcon, Loader2, ExternalLink } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { listAllEvents, shortAddr, type EscrowRow, type EventRow } from "@/lib/escrow";
+import { explorerTxUrl } from "@/lib/solanaConfig";
 import { StatusBadge } from "@/components/escrow/StatusBadges";
 
 export default function TransactionHistory() {
@@ -71,7 +72,20 @@ export default function TransactionHistory() {
                         {shortAddr(r.escrow.payer_wallet)} → {shortAddr(r.escrow.receiver_wallet)}
                       </TableCell>
                       <TableCell><StatusBadge status={r.escrow.status} /></TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{r.tx_signature ?? "—"}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {r.tx_signature ? (
+                          <a
+                            href={explorerTxUrl(r.tx_signature)}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            {r.tx_signature.slice(0, 6)}…{r.tx_signature.slice(-4)}
+                          </a>
+                        ) : "—"}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</TableCell>
                     </TableRow>
                   ))}

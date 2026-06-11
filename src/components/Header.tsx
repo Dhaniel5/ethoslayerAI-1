@@ -1,8 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, User } from "lucide-react";
+import { LogIn, LogOut } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import WalletConnectButton from "@/components/WalletConnectButton";
 
 const navLinks = [
   { to: "/analyze", label: "Analyze" },
@@ -46,6 +47,10 @@ const Header = () => {
             </Link>
           ))}
 
+          <div className="pl-2 border-l border-border/50">
+            <WalletConnectButton />
+          </div>
+
           {user ? (
             <div className="flex items-center gap-2 pl-2 border-l border-border/50">
               <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[120px]">
@@ -62,10 +67,7 @@ const Header = () => {
               </Button>
             </div>
           ) : (
-            <Link
-              to="/auth"
-              className="pl-2 border-l border-border/50"
-            >
+            <Link to="/auth" className="pl-2 border-l border-border/50">
               <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                 <LogIn className="h-3.5 w-3.5" />
                 Sign In
