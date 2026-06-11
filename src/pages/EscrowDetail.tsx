@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, ShieldCheck, CheckCircle2, AlertTriangle, Loader2, X, Copy, Clock,
+  ArrowLeft, ShieldCheck, CheckCircle2, AlertTriangle, Loader2, X, Copy, Clock, ExternalLink,
 } from "lucide-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   approveMilestone, disputeEscrow, getEscrow, releaseEscrow,
   type EscrowRow, type MilestoneRow, type EventRow, shortAddr,
 } from "@/lib/escrow";
+import { explorerTxUrl, ESCROW_VAULT_ADDRESS } from "@/lib/solanaConfig";
 import { StatusBadge, TrustBadge } from "@/components/escrow/StatusBadges";
 import { useToast } from "@/hooks/use-toast";
 

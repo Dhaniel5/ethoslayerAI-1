@@ -274,10 +274,27 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
           </motion.div>
         </div>
 
+        {!connected && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+            <p className="text-xs text-amber-300">Connect Phantom to sign the on-chain AUDD lock.</p>
+            <Button size="sm" variant="outline" onClick={() => setVisible(true)} className="gap-1.5">
+              <Wallet className="h-3.5 w-3.5" /> Connect
+            </Button>
+          </div>
+        )}
+        {connected && !walletMatchesPayer && payer && (
+          <p className="text-xs text-destructive">
+            Connected wallet doesn't match the payer wallet. Switch wallets or use the connected address.
+          </p>
+        )}
+        <p className="text-[11px] text-muted-foreground">
+          AUDD will be transferred to vault <span className="font-mono">{ESCROW_VAULT_ADDRESS.slice(0, 8)}…{ESCROW_VAULT_ADDRESS.slice(-4)}</span> on Solana. Release requires the vault wallet.
+        </p>
+
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Escrow Contract"}
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Lock AUDD & Create"}
           </Button>
         </DialogFooter>
       </DialogContent>
