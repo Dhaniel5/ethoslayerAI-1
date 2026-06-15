@@ -243,6 +243,23 @@ export async function approveMilestone(
   return sig;
 }
 
+/**
+ * Custodial release path — invokes the `release-escrow` edge function which
+ * holds the vault keypair as a server secret and signs the SPL transfer.
+ * Used when the vault wallet isn't connected in the browser.
+ */
+export async function releaseViaCustodialVault(
+  escrowId: string,
+  milestoneId?: string,
+): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("release-escrow", {
+    body: { escrow_id: escrowId, milestone_id: milestoneId ?? null },
+  });
+  if (error) throw new Error(error.message || "Custodial release failed");
+  if ((data as any)?.error) throw new Error((data as any).error);
+  return (data as any).signature as string;
+}
+
 export async function disputeEscrow(escrowId: string, reason: string) {
   await supabase
     .from("escrows")
