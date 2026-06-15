@@ -69,9 +69,7 @@ export default function EscrowDetail() {
   }
 
   const requireVaultSigner = () => {
-    if (!isVaultConnected || !publicKey || !signTransaction) {
-      throw new Error(`Connect the vault wallet (${shortAddr(ESCROW_VAULT_ADDRESS)}) to sign.`);
-    }
+    if (!isVaultConnected || !publicKey || !signTransaction) return null;
     return { connection, signer: { publicKey, signTransaction } };
   };
 
@@ -79,7 +77,11 @@ export default function EscrowDetail() {
     setActionLoading(true);
     try {
       const chain = requireVaultSigner();
-      await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain);
+      if (chain) {
+        await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain);
+      } else {
+        await releaseViaCustodialVault(escrow.id);
+      }
       toast({ title: "Funds released", description: "AUDD transferred on-chain to the receiver." });
       load();
     } catch (e: any) {
@@ -90,7 +92,11 @@ export default function EscrowDetail() {
     setActionLoading(true);
     try {
       const chain = requireVaultSigner();
-      await approveMilestone(escrow.id, m.id, escrow.receiver_wallet, chain);
+      if (chain) {
+        await approveMilestone(escrow.id, m.id, escrow.receiver_wallet, chain);
+      } else {
+        await releaseViaCustodialVault(escrow.id, m.id);
+      }
       toast({ title: "Milestone approved", description: `${m.amount_audd} AUDD released on-chain.` });
       load();
     } catch (e: any) {
