@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  approveMilestone, disputeEscrow, getEscrow, releaseEscrow,
+  approveMilestone, disputeEscrow, getEscrow, releaseEscrow, releaseViaCustodialVault,
   type EscrowRow, type MilestoneRow, type EventRow, shortAddr,
 } from "@/lib/escrow";
 import { explorerTxUrl, ESCROW_VAULT_ADDRESS } from "@/lib/solanaConfig";
