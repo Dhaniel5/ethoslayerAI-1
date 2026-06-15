@@ -240,7 +240,7 @@ export default function EscrowDetail() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleApproveMilestone(m)}
-                          disabled={!isVaultConnected || actionLoading}
+                          disabled={actionLoading}
                         >
                           Approve &amp; release
                         </Button>
