@@ -162,15 +162,15 @@ export default function EscrowDetail() {
                 {/* Actions */}
                 <div className="mt-6 space-y-2">
                   {isReleasable && !isVaultConnected && (
-                    <p className="text-xs text-amber-300">
-                      Release requires the vault wallet ({shortAddr(ESCROW_VAULT_ADDRESS)}). Connect it via the wallet button to release funds.
+                    <p className="text-xs text-muted-foreground">
+                      Release will be signed by the custodial vault ({shortAddr(ESCROW_VAULT_ADDRESS)}) on the server. Connect the vault wallet to sign locally instead.
                     </p>
                   )}
                   <div className="flex gap-2 flex-wrap">
                     {isReleasable && escrow.condition_type === "approval" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button className="gap-1.5" disabled={!isVaultConnected || actionLoading}>
+                          <Button className="gap-1.5" disabled={actionLoading}>
                             {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                             Approve Release
                           </Button>
