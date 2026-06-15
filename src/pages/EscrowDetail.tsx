@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  approveMilestone, disputeEscrow, getEscrow, releaseEscrow,
+  approveMilestone, disputeEscrow, getEscrow, releaseEscrow, releaseViaCustodialVault,
   type EscrowRow, type MilestoneRow, type EventRow, shortAddr,
 } from "@/lib/escrow";
 import { explorerTxUrl, ESCROW_VAULT_ADDRESS } from "@/lib/solanaConfig";
@@ -69,9 +69,7 @@ export default function EscrowDetail() {
   }
 
   const requireVaultSigner = () => {
-    if (!isVaultConnected || !publicKey || !signTransaction) {
-      throw new Error(`Connect the vault wallet (${shortAddr(ESCROW_VAULT_ADDRESS)}) to sign.`);
-    }
+    if (!isVaultConnected || !publicKey || !signTransaction) return null;
     return { connection, signer: { publicKey, signTransaction } };
   };
 
@@ -79,7 +77,11 @@ export default function EscrowDetail() {
     setActionLoading(true);
     try {
       const chain = requireVaultSigner();
-      await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain);
+      if (chain) {
+        await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain);
+      } else {
+        await releaseViaCustodialVault(escrow.id);
+      }
       toast({ title: "Funds released", description: "AUDD transferred on-chain to the receiver." });
       load();
     } catch (e: any) {
@@ -90,7 +92,11 @@ export default function EscrowDetail() {
     setActionLoading(true);
     try {
       const chain = requireVaultSigner();
-      await approveMilestone(escrow.id, m.id, escrow.receiver_wallet, chain);
+      if (chain) {
+        await approveMilestone(escrow.id, m.id, escrow.receiver_wallet, chain);
+      } else {
+        await releaseViaCustodialVault(escrow.id, m.id);
+      }
       toast({ title: "Milestone approved", description: `${m.amount_audd} AUDD released on-chain.` });
       load();
     } catch (e: any) {
@@ -156,15 +162,15 @@ export default function EscrowDetail() {
                 {/* Actions */}
                 <div className="mt-6 space-y-2">
                   {isReleasable && !isVaultConnected && (
-                    <p className="text-xs text-amber-300">
-                      Release requires the vault wallet ({shortAddr(ESCROW_VAULT_ADDRESS)}). Connect it via the wallet button to release funds.
+                    <p className="text-xs text-muted-foreground">
+                      Release will be signed by the custodial vault ({shortAddr(ESCROW_VAULT_ADDRESS)}) on the server. Connect the vault wallet to sign locally instead.
                     </p>
                   )}
                   <div className="flex gap-2 flex-wrap">
                     {isReleasable && escrow.condition_type === "approval" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button className="gap-1.5" disabled={!isVaultConnected || actionLoading}>
+                          <Button className="gap-1.5" disabled={actionLoading}>
                             {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                             Approve Release
                           </Button>
@@ -234,7 +240,7 @@ export default function EscrowDetail() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleApproveMilestone(m)}
-                          disabled={!isVaultConnected || actionLoading}
+                          disabled={actionLoading}
                         >
                           Approve &amp; release
                         </Button>
