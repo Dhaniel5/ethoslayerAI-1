@@ -9,7 +9,7 @@
 // Auth: requires the caller's JWT; only the escrow owner can release.
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
-import bs58 from "npm:bs58@6.0.0";
+import bs58 from "npm:bs58@5.0.0";
 import { ed25519 } from "npm:@noble/curves@1.8.2/ed25519";
 
 const corsHeaders = {
@@ -20,9 +20,10 @@ const corsHeaders = {
 const AUDD_DECIMALS = 6;
 const RPC = Deno.env.get("SOLANA_RPC_URL") || "https://api.devnet.solana.com";
 const AUDD_MINT_STR = Deno.env.get("AUDD_MINT") || "cgnTSU2dKAVqp7cnGrqgijRsHGEffjpyAo3WCi9LTAH";
-const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
-const ASSOCIATED_TOKEN_PROGRAM_ID = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
-const SYSTEM_PROGRAM_ID = "11111111111111111111111111111111";
+const TOKEN_PROGRAM_ID_STR = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const ASSOCIATED_TOKEN_PROGRAM_ID_STR = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+const SYSTEM_PROGRAM_ID_STR = "11111111111111111111111111111111";
+const PDA_MARKER = new TextEncoder().encode("ProgramDerivedAddress");
 
 type VaultKeypair = { secret: Uint8Array; publicKey: Uint8Array; publicKeyBase58: string };
 
@@ -77,10 +78,31 @@ function u64LE(value: bigint): Uint8Array {
   return out;
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 function isOnCurve(bytes: Uint8Array): boolean {
-  if (trimmed.startsWith("[")) {
-    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(trimmed)));
+  try {
+    ed25519.ExtendedPoint.fromHex(bytes);
+    return true;
+  } catch {
+    return false;
   }
+}
+
+async function sha256(...parts: Uint8Array[]): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", concatBytes(...parts)));
+}
+
+async function findProgramAddress(seeds: Uint8Array[], programId: Uint8Array): Promise<Uint8Array> {
+  for (let bump = 255; bump >= 0; bump--) {
+    const candidate = await sha256(...seeds, Uint8Array.of(bump), programId, PDA_MARKER);
+    if (!isOnCurve(candidate)) return candidate;
+  }
+  throw new Error("Unable to derive associated token account address.");
 }
 
 function uiToBase(amount: number): bigint {
@@ -89,32 +111,79 @@ function uiToBase(amount: number): bigint {
   return BigInt(w) * BigInt(10 ** AUDD_DECIMALS) + BigInt(padded || 0);
 }
 
-async function transferAudd(
-  conn: Connection, vault: Keypair, receiver: PublicKey, amount: number,
-): Promise<string> {
-  const mint = new PublicKey(AUDD_MINT_STR);
-  const fromAta = await getAssociatedTokenAddress(mint, vault.publicKey);
-  const toAta = await getAssociatedTokenAddress(mint, receiver);
+async function rpc<T>(method: string, params: unknown[]): Promise<T> {
+  const res = await fetch(RPC, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: crypto.randomUUID(), method, params }),
+  });
+  if (!res.ok) throw new Error(`Solana RPC HTTP ${res.status}`);
+  const body = await res.json();
+  if (body.error) throw new Error(body.error.message || JSON.stringify(body.error));
+  return body.result as T;
+}
 
-  const tx = new Transaction();
-  try { await getAccount(conn, toAta); }
-  catch {
-    tx.add(createAssociatedTokenAccountInstruction(vault.publicKey, toAta, receiver, mint));
+async function accountExists(address: Uint8Array): Promise<boolean> {
+  const result = await rpc<{ value: unknown }>("getAccountInfo", [bs58.encode(address), { encoding: "base64" }]);
+  return result.value !== null;
+}
+
+function compiledInstruction(programIdIndex: number, accountIndexes: number[], data: Uint8Array): Uint8Array {
+  return concatBytes(
+    Uint8Array.of(programIdIndex),
+    encodeLength(accountIndexes.length),
+    Uint8Array.from(accountIndexes),
+    encodeLength(data.length),
+    data,
+  );
+}
+
+async function transferAudd(vault: VaultKeypair, receiverBase58: string, amount: number): Promise<string> {
+  const mint = pubkeyBytes(AUDD_MINT_STR);
+  const tokenProgram = pubkeyBytes(TOKEN_PROGRAM_ID_STR);
+  const associatedTokenProgram = pubkeyBytes(ASSOCIATED_TOKEN_PROGRAM_ID_STR);
+  const systemProgram = pubkeyBytes(SYSTEM_PROGRAM_ID_STR);
+  const receiver = pubkeyBytes(receiverBase58);
+  const fromAta = await findProgramAddress([vault.publicKey, tokenProgram, mint], associatedTokenProgram);
+  const toAta = await findProgramAddress([receiver, tokenProgram, mint], associatedTokenProgram);
+  const shouldCreateToAta = !(await accountExists(toAta));
+
+  const accountKeys = [
+    vault.publicKey,
+    fromAta,
+    toAta,
+    receiver,
+    mint,
+    systemProgram,
+    tokenProgram,
+    associatedTokenProgram,
+  ];
+
+  const instructions: Uint8Array[] = [];
+  if (shouldCreateToAta) {
+    instructions.push(compiledInstruction(7, [0, 2, 3, 4, 5, 6], new Uint8Array()));
   }
-  tx.add(createTransferCheckedInstruction(
-    fromAta, mint, toAta, vault.publicKey,
-    uiToBase(amount), AUDD_DECIMALS, [], TOKEN_PROGRAM_ID,
+  instructions.push(compiledInstruction(
+    6,
+    [1, 4, 2, 0],
+    concatBytes(Uint8Array.of(12), u64LE(uiToBase(amount)), Uint8Array.of(AUDD_DECIMALS)),
   ));
 
-  const { blockhash } = await conn.getLatestBlockhash("confirmed");
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = vault.publicKey;
-  tx.sign(vault);
-  return await conn.sendRawTransaction(tx.serialize(), {
-    maxRetries: 3,
-    skipPreflight: false,
-    preflightCommitment: "confirmed",
-  });
+  const blockhash = await rpc<{ value: { blockhash: string } }>("getLatestBlockhash", [{ commitment: "confirmed" }]);
+  const message = concatBytes(
+    Uint8Array.of(1, 0, 5),
+    encodeLength(accountKeys.length),
+    ...accountKeys,
+    pubkeyBytes(blockhash.value.blockhash),
+    encodeLength(instructions.length),
+    ...instructions,
+  );
+  const signature = await ed25519.sign(message, vault.secret.slice(0, 32));
+  const tx = concatBytes(encodeLength(1), signature, message);
+  return await rpc<string>("sendTransaction", [
+    bytesToBase64(tx),
+    { encoding: "base64", skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 3 },
+  ]);
 }
 
 Deno.serve(async (req) => {
@@ -132,22 +201,17 @@ Deno.serve(async (req) => {
 
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userRes.user) throw new Error("Unauthorized");
-    const userId = userRes.user.id;
 
     const { escrow_id, milestone_id } = await req.json();
     if (!escrow_id) throw new Error("escrow_id is required");
 
-    // Fetch escrow (service role, then check ownership manually).
     const { data: escrow, error: eErr } = await supabase
       .from("escrows").select("*").eq("id", escrow_id).maybeSingle();
     if (eErr || !escrow) throw new Error("Escrow not found");
-    if (escrow.user_id !== userId) throw new Error("Forbidden");
+    if (escrow.user_id !== userRes.user.id) throw new Error("Forbidden");
     if (escrow.status === "released") throw new Error("Already released");
 
-    const conn = new Connection(RPC, "confirmed");
     const vault = loadVault();
-    const receiver = new PublicKey(escrow.receiver_wallet);
-
     let amount = Number(escrow.amount_audd);
     let milestone: any = null;
     if (milestone_id) {
@@ -160,7 +224,7 @@ Deno.serve(async (req) => {
       amount = Number(m.amount_audd);
     }
 
-    const sig = await transferAudd(conn, vault, receiver, amount);
+    const sig = await transferAudd(vault, escrow.receiver_wallet, amount);
 
     if (milestone) {
       await supabase.from("escrow_milestones")
@@ -186,11 +250,11 @@ Deno.serve(async (req) => {
         .eq("id", escrow_id);
       await supabase.from("escrow_events").insert({
         escrow_id, event_type: "released", amount_audd: amount, tx_signature: sig,
-        note: `Released by custodial vault`,
+        note: "Released by custodial vault",
       });
     }
 
-    return new Response(JSON.stringify({ signature: sig, vault: vault.publicKey.toBase58() }), {
+    return new Response(JSON.stringify({ signature: sig, vault: vault.publicKeyBase58 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
