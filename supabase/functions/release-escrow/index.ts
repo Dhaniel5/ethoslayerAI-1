@@ -64,22 +64,15 @@ async function transferAudd(
     uiToBase(amount), AUDD_DECIMALS, [], TOKEN_PROGRAM_ID,
   ));
 
-  const { blockhash } = await conn.getLatestBlockhash();
+  const { blockhash } = await conn.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = vault.publicKey;
   tx.sign(vault);
-  const sig = await conn.sendRawTransaction(tx.serialize(), { maxRetries: 3 });
-
-  // Confirm via polling.
-  const start = Date.now();
-  while (Date.now() - start < 60_000) {
-    const { value } = await conn.getSignatureStatuses([sig], { searchTransactionHistory: true });
-    const s = value?.[0];
-    if (s?.err) throw new Error(`On-chain failure: ${JSON.stringify(s.err)}`);
-    if (s?.confirmationStatus === "confirmed" || s?.confirmationStatus === "finalized") return sig;
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-  throw new Error(`Confirmation timed out for ${sig}`);
+  return await conn.sendRawTransaction(tx.serialize(), {
+    maxRetries: 3,
+    skipPreflight: false,
+    preflightCommitment: "confirmed",
+  });
 }
 
 Deno.serve(async (req) => {
