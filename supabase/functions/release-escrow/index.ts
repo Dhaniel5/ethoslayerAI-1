@@ -8,19 +8,9 @@
 //
 // Auth: requires the caller's JWT; only the escrow owner can release.
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import {
-  Connection, Keypair, PublicKey, Transaction,
-} from "https://esm.sh/@solana/web3.js@1.95.3";
-import {
-  createAssociatedTokenAccountInstruction,
-  createTransferCheckedInstruction,
-  getAssociatedTokenAddress,
-  getAccount,
-  TOKEN_PROGRAM_ID,
-} from "https://esm.sh/@solana/spl-token@0.4.8";
-import bs58 from "https://esm.sh/bs58@5.0.0";
+import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import bs58 from "npm:bs58@6.0.0";
+import { ed25519 } from "npm:@noble/curves@1.8.2/ed25519";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,15 +20,67 @@ const corsHeaders = {
 const AUDD_DECIMALS = 6;
 const RPC = Deno.env.get("SOLANA_RPC_URL") || "https://api.devnet.solana.com";
 const AUDD_MINT_STR = Deno.env.get("AUDD_MINT") || "cgnTSU2dKAVqp7cnGrqgijRsHGEffjpyAo3WCi9LTAH";
+const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const ASSOCIATED_TOKEN_PROGRAM_ID = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+const SYSTEM_PROGRAM_ID = "11111111111111111111111111111111";
 
-function loadVault(): Keypair {
+type VaultKeypair = { secret: Uint8Array; publicKey: Uint8Array; publicKeyBase58: string };
+
+function pubkeyBytes(value: string): Uint8Array {
+  const bytes = bs58.decode(value.trim());
+  if (bytes.length !== 32) throw new Error(`Invalid public key: ${value}`);
+  return bytes;
+}
+
+function loadVault(): VaultKeypair {
   const raw = Deno.env.get("VAULT_SECRET_KEY");
   if (!raw) throw new Error("VAULT_SECRET_KEY secret is not configured.");
   const trimmed = raw.trim();
+  const secret = trimmed.startsWith("[")
+    ? Uint8Array.from(JSON.parse(trimmed))
+    : bs58.decode(trimmed);
+  if (secret.length !== 64) throw new Error("VAULT_SECRET_KEY must be a 64-byte Solana keypair.");
+  const publicKey = secret.slice(32, 64);
+  return { secret, publicKey, publicKeyBase58: bs58.encode(publicKey) };
+}
+
+function encodeLength(length: number): Uint8Array {
+  const out: number[] = [];
+  let rem = length;
+  for (;;) {
+    let elem = rem & 0x7f;
+    rem >>= 7;
+    if (rem === 0) {
+      out.push(elem);
+      break;
+    }
+    elem |= 0x80;
+    out.push(elem);
+  }
+  return Uint8Array.from(out);
+}
+
+function concatBytes(...parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}
+
+function u64LE(value: bigint): Uint8Array {
+  const out = new Uint8Array(8);
+  new DataView(out.buffer).setBigUint64(0, value, true);
+  return out;
+}
+
+function isOnCurve(bytes: Uint8Array): boolean {
   if (trimmed.startsWith("[")) {
     return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(trimmed)));
   }
-  return Keypair.fromSecretKey(bs58.decode(trimmed));
 }
 
 function uiToBase(amount: number): bigint {
