@@ -32,7 +32,7 @@ export default function SolanaWalletProvider({ children }: { children: ReactNode
           icon: "/favicon.ico",
         },
         authorizationResultCache: createDefaultAuthorizationResultCache(),
-        cluster: SOLANA_CLUSTER === "mainnet-beta" ? "solana:mainnet" : "solana:devnet",
+        chain: SOLANA_CLUSTER === "mainnet-beta" ? "solana:mainnet" : "solana:devnet",
         onWalletNotFound: createDefaultWalletNotFoundHandler(),
       }),
       new PhantomWalletAdapter(),
