@@ -23,12 +23,31 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
   const { setVisible } = useWalletModal();
   const { toast } = useToast();
 
+  const isMobile =
+    typeof navigator !== "undefined" &&
+    /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
+  const hasPhantomExt =
+    typeof window !== "undefined" && Boolean((window as any).phantom?.solana);
+
+  const handleConnect = () => {
+    // On mobile browsers without the Phantom in-app browser, deeplink into Phantom's
+    // browser pre-loaded with the current URL — the wallet modal alone can't reach
+    // a non-installed extension.
+    if (isMobile && !hasPhantomExt) {
+      const url = encodeURIComponent(window.location.href);
+      const ref = encodeURIComponent(window.location.origin);
+      window.location.href = `https://phantom.app/ul/browse/${url}?ref=${ref}`;
+      return;
+    }
+    setVisible(true);
+  };
+
   if (!publicKey) {
     return (
       <Button
         size={size}
         variant={variant}
-        onClick={() => setVisible(true)}
+        onClick={handleConnect}
         disabled={connecting}
         className="gap-1.5"
       >
