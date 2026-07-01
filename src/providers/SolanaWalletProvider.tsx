@@ -19,26 +19,31 @@ export default function SolanaWalletProvider({ children }: { children: ReactNode
       : SOLANA_CLUSTER === "devnet"
       ? WalletAdapterNetwork.Devnet
       : WalletAdapterNetwork.Testnet;
+  const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
 
   const wallets = useMemo(
     () => [
-      new SolanaMobileWalletAdapter({
-        addressSelector: {
-          select: (addresses: string[]) => Promise.resolve(addresses[0]),
-        },
-        appIdentity: {
-          name: "EthosLayer",
-          uri: typeof window !== "undefined" ? window.location.origin : "https://ethoslayer.lovable.app",
-          icon: "/favicon.ico",
-        },
-        authorizationResultCache: createDefaultAuthorizationResultCache(),
-        chain: SOLANA_CLUSTER === "mainnet-beta" ? "solana:mainnet" : "solana:devnet",
-        onWalletNotFound: createDefaultWalletNotFoundHandler(),
-      }),
       new PhantomWalletAdapter(),
       new SolflareWalletAdapter({ network }),
+      ...(isAndroid
+        ? [
+            new SolanaMobileWalletAdapter({
+              addressSelector: {
+                select: (addresses: string[]) => Promise.resolve(addresses[0]),
+              },
+              appIdentity: {
+                name: "EthosLayer",
+                uri: typeof window !== "undefined" ? window.location.origin : "https://ethoslayer.lovable.app",
+                icon: "/favicon.ico",
+              },
+              authorizationResultCache: createDefaultAuthorizationResultCache(),
+              chain: SOLANA_CLUSTER === "mainnet-beta" ? "solana:mainnet" : "solana:devnet",
+              onWalletNotFound: createDefaultWalletNotFoundHandler(),
+            }),
+          ]
+        : []),
     ],
-    [network],
+    [network, isAndroid],
   );
 
   return (

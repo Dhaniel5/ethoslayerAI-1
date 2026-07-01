@@ -10,6 +10,14 @@ export const SOLANA_CLUSTER: Cluster =
 export const SOLANA_RPC_URL: string =
   import.meta.env.VITE_SOLANA_RPC_URL || clusterApiUrl(SOLANA_CLUSTER);
 
+const DEFAULT_CLUSTER_RPC_URL = clusterApiUrl(SOLANA_CLUSTER);
+
+// Try the configured RPC first, then the public cluster RPC. This prevents an
+// invalid/forbidden custom endpoint from blocking escrow transactions entirely.
+export const SOLANA_RPC_ENDPOINTS: string[] = Array.from(
+  new Set([SOLANA_RPC_URL, DEFAULT_CLUSTER_RPC_URL].filter(Boolean)),
+);
+
 // Canonical AUDD mint on Solana mainnet. Override with VITE_AUDD_MINT if needed.
 export const AUDD_MINT_ADDRESS: string =
   import.meta.env.VITE_AUDD_MINT || "cgnTSU2dKAVqp7cnGrqgijRsHGEffjpyAo3WCi9LTAH";
