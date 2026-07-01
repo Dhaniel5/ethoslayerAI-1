@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, ShieldCheck, Loader2, X, AlertCircle, CheckCircle2, Wallet } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, Loader2, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { WalletName, WalletReadyState } from "@solana/wallet-adapter-base";
+import { WalletReadyState, type WalletName } from "@solana/wallet-adapter-base";
 import { Wallet, LogOut, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
