@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { WalletReadyState, type WalletName } from "@solana/wallet-adapter-base";
 import { Wallet, LogOut, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,15 +21,44 @@ interface Props {
 }
 
 export default function WalletConnectButton({ size = "sm", variant = "outline" }: Props) {
-  const { publicKey, disconnect, connecting, wallet } = useWallet();
+  const { publicKey, disconnect, connecting, wallet, wallets, select, connect } = useWallet();
   const { setVisible } = useWalletModal();
   const { toast } = useToast();
+  const [pendingWallet, setPendingWallet] = useState<WalletName | null>(null);
 
   const isMobile =
     typeof navigator !== "undefined" &&
     /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
   const hasPhantomExt =
     typeof window !== "undefined" && Boolean((window as any).phantom?.solana);
+  const phantomWallet = wallets.find((w) => w.adapter.name === "Phantom");
+  const phantomReady =
+    hasPhantomExt ||
+    phantomWallet?.readyState === WalletReadyState.Installed ||
+    phantomWallet?.readyState === WalletReadyState.Loadable;
+
+  useEffect(() => {
+    if (!pendingWallet || !wallet || wallet.adapter.name !== pendingWallet || publicKey) return;
+
+    let cancelled = false;
+    connect()
+      .catch((err) => {
+        if (cancelled) return;
+        toast({
+          title: "Wallet connection failed",
+          description: err instanceof Error ? err.message : "Phantom did not approve the connection.",
+          variant: "destructive",
+        });
+        setVisible(true);
+      })
+      .finally(() => {
+        if (!cancelled) setPendingWallet(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connect, pendingWallet, publicKey, setVisible, toast, wallet]);
 
   const handleConnect = () => {
     // On mobile browsers without the Phantom in-app browser, deeplink into Phantom's
@@ -39,7 +70,19 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
       window.location.href = `https://phantom.app/ul/browse/${url}?ref=${ref}`;
       return;
     }
+
+    if (phantomReady) {
+      const phantomName = "Phantom" as WalletName;
+      select(phantomName);
+      setPendingWallet(phantomName);
+      return;
+    }
+
     setVisible(true);
+    toast({
+      title: "Phantom not detected",
+      description: "Install the Phantom browser extension, or open this site inside the Phantom mobile app browser.",
+    });
   };
 
   if (!publicKey) {

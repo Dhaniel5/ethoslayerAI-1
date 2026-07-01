@@ -18,8 +18,9 @@ const corsHeaders = {
 };
 
 const AUDD_DECIMALS = 6;
-const RPC = Deno.env.get("SOLANA_RPC_URL") || "https://api.devnet.solana.com";
-const AUDD_MINT_STR = Deno.env.get("AUDD_MINT") || "cgnTSU2dKAVqp7cnGrqgijRsHGEffjpyAo3WCi9LTAH";
+const PRIMARY_RPC = Deno.env.get("SOLANA_RPC_URL") || "https://api.devnet.solana.com";
+const RPC_ENDPOINTS = Array.from(new Set([PRIMARY_RPC, "https://api.devnet.solana.com"]));
+const AUDD_MINT_STR = Deno.env.get("AUDD_MINT") || "B9peANWbJrZvJhKY2T5iUY64iT41k7rsfF2BSeZMong6";
 const TOKEN_PROGRAM_ID_STR = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const ASSOCIATED_TOKEN_PROGRAM_ID_STR = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 const SYSTEM_PROGRAM_ID_STR = "11111111111111111111111111111111";
@@ -111,16 +112,51 @@ function uiToBase(amount: number): bigint {
   return BigInt(w) * BigInt(10 ** AUDD_DECIMALS) + BigInt(padded || 0);
 }
 
+function isRetryableRpcError(statusOrCode: number | undefined, message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    statusOrCode === 403 ||
+    statusOrCode === 429 ||
+    (statusOrCode !== undefined && statusOrCode >= 500) ||
+    lower.includes("access forbidden") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("network") ||
+    lower.includes("timeout")
+  );
+}
+
 async function rpc<T>(method: string, params: unknown[]): Promise<T> {
-  const res = await fetch(RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: crypto.randomUUID(), method, params }),
-  });
-  if (!res.ok) throw new Error(`Solana RPC HTTP ${res.status}`);
-  const body = await res.json();
-  if (body.error) throw new Error(body.error.message || JSON.stringify(body.error));
-  return body.result as T;
+  const errors: string[] = [];
+
+  for (const endpoint of RPC_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: crypto.randomUUID(), method, params }),
+      });
+      if (!res.ok) {
+        const message = `Solana RPC HTTP ${res.status}`;
+        errors.push(`${endpoint}: ${message}`);
+        if (isRetryableRpcError(res.status, message)) continue;
+        throw new Error(message);
+      }
+      const body = await res.json();
+      if (body.error) {
+        const message = body.error.message || JSON.stringify(body.error);
+        errors.push(`${endpoint}: ${message}`);
+        if (isRetryableRpcError(body.error.code, message)) continue;
+        throw new Error(message);
+      }
+      return body.result as T;
+    } catch (err) {
+      const message = (err as Error).message || String(err);
+      errors.push(`${endpoint}: ${message}`);
+      if (!isRetryableRpcError(undefined, message)) throw err;
+    }
+  }
+
+  throw new Error(`Solana RPC request failed for ${method}: ${errors.join(" | ")}`);
 }
 
 async function accountExists(address: Uint8Array): Promise<boolean> {

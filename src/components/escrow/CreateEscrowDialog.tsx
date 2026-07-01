@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, ShieldCheck, Loader2, X, AlertCircle, CheckCircle2, Wallet } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, Loader2, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +14,7 @@ import { createEscrow } from "@/lib/escrow";
 import { ESCROW_VAULT_ADDRESS } from "@/lib/solanaConfig";
 import { TrustBadge } from "./StatusBadges";
 import { useToast } from "@/hooks/use-toast";
+import WalletConnectButton from "@/components/WalletConnectButton";
 
 interface Props {
   open: boolean;
@@ -26,7 +26,6 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
   const { toast } = useToast();
   const { connection } = useConnection();
   const { publicKey, signTransaction, connected } = useWallet();
-  const { setVisible } = useWalletModal();
   const [payer, setPayer] = useState("");
   const [receiver, setReceiver] = useState("");
   const [amount, setAmount] = useState("");
@@ -277,9 +276,7 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
         {!connected && (
           <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
             <p className="text-xs text-amber-300">Connect Phantom to sign the on-chain AUDD lock.</p>
-            <Button size="sm" variant="outline" onClick={() => setVisible(true)} className="gap-1.5">
-              <Wallet className="h-3.5 w-3.5" /> Connect
-            </Button>
+            <WalletConnectButton size="sm" variant="outline" />
           </div>
         )}
         {connected && !walletMatchesPayer && payer && (
