@@ -15,6 +15,15 @@ export function shortPubkey(pk: string) {
   return pk.length > 12 ? `${pk.slice(0, 4)}…${pk.slice(-4)}` : pk;
 }
 
+function getPhantomProvider() {
+  if (typeof window === "undefined") return null;
+  const phantom = (window as any).phantom?.solana;
+  const solana = (window as any).solana;
+  if (phantom?.isPhantom) return phantom;
+  if (solana?.isPhantom) return solana;
+  return null;
+}
+
 interface Props {
   size?: "sm" | "default";
   variant?: "default" | "ghost" | "outline";
@@ -29,11 +38,14 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
   const isMobile =
     typeof navigator !== "undefined" &&
     /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
-  const hasPhantomExt =
-    typeof window !== "undefined" && Boolean((window as any).phantom?.solana);
-  const phantomWallet = wallets.find((w) => w.adapter.name === "Phantom");
+  const hasPhantomProvider = Boolean(getPhantomProvider());
+  const phantomWallet = wallets.find(
+    (w) =>
+      w.adapter.name === "Phantom" &&
+      (w.readyState === WalletReadyState.Installed || w.readyState === WalletReadyState.Loadable),
+  );
   const phantomReady =
-    hasPhantomExt ||
+    hasPhantomProvider ||
     phantomWallet?.readyState === WalletReadyState.Installed ||
     phantomWallet?.readyState === WalletReadyState.Loadable;
 
@@ -64,15 +76,15 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
     // On mobile browsers without the Phantom in-app browser, deeplink into Phantom's
     // browser pre-loaded with the current URL — the wallet modal alone can't reach
     // a non-installed extension.
-    if (isMobile && !hasPhantomExt) {
+    if (isMobile && !hasPhantomProvider) {
       const url = encodeURIComponent(window.location.href);
       const ref = encodeURIComponent(window.location.origin);
       window.location.href = `https://phantom.app/ul/browse/${url}?ref=${ref}`;
       return;
     }
 
-    if (phantomReady) {
-      const phantomName = "Phantom" as WalletName;
+    if (phantomReady || phantomWallet) {
+      const phantomName = (phantomWallet?.adapter.name || "Phantom") as WalletName;
       select(phantomName);
       setPendingWallet(phantomName);
       return;
