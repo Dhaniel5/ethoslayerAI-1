@@ -210,6 +210,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       watchlist: {
         Row: {
           created_at: string
@@ -248,9 +269,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_list_users: {
+        Args: never
+        Returns: {
+          analysis_count: number
+          created_at: string
+          email: string
+          escrow_count: number
+          id: string
+          last_sign_in_at: string
+          watchlist_count: number
+        }[]
+      }
+      admin_metrics: { Args: never; Returns: Json }
+      admin_top_tokens: {
+        Args: { _limit?: number }
+        Returns: {
+          analysis_count: number
+          avg_integrity: number
+          mint_address: string
+          token_name: string
+          token_symbol: string
+        }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
       escrow_event_type:
         | "created"
         | "locked"
@@ -396,6 +447,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
       escrow_event_type: [
         "created",
         "locked",

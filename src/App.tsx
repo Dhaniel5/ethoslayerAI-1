@@ -14,6 +14,7 @@ import TransactionHistory from "./pages/TransactionHistory";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import Admin from "./pages/Admin";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SolanaWalletProvider from "./providers/SolanaWalletProvider";
 
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/settlement/:id" element={<ProtectedRoute><EscrowDetail /></ProtectedRoute>} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
