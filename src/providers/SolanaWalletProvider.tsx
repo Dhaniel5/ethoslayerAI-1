@@ -1,6 +1,7 @@
 import { ReactNode, useMemo } from "react";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import {
   SolanaMobileWalletAdapter,
@@ -22,6 +23,9 @@ export default function SolanaWalletProvider({ children }: { children: ReactNode
 
   const wallets = useMemo(
     () => [
+      // Keep the legacy adapter registered as a reliable mobile fallback. Inside
+      // Phantom it is automatically replaced by Phantom's Wallet Standard adapter.
+      new PhantomWalletAdapter(),
       new SolflareWalletAdapter({ network }),
       ...(isAndroid
         ? [
