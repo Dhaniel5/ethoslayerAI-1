@@ -16,14 +16,9 @@ export function useIsAdmin() {
     }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
+      const { data } = await supabase.rpc("is_admin", { _user_id: user.id });
       if (!cancelled) {
-        setIsAdmin(!!data);
+        setIsAdmin(data === true);
         setLoading(false);
       }
     })();
