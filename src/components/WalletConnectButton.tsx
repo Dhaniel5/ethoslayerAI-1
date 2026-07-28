@@ -24,6 +24,20 @@ function getPhantomProvider() {
   return null;
 }
 
+function isMobileBrowser() {
+  if (typeof navigator === "undefined") return false;
+  return (
+    /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function openInPhantom() {
+  const currentUrl = encodeURIComponent(window.location.href);
+  const referrer = encodeURIComponent(window.location.origin);
+  window.location.assign(`https://phantom.app/ul/browse/${currentUrl}?ref=${referrer}`);
+}
+
 interface Props {
   size?: "sm" | "default";
   variant?: "default" | "ghost" | "outline";
@@ -35,9 +49,7 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
   const { toast } = useToast();
   const [pendingWallet, setPendingWallet] = useState<WalletName | null>(null);
 
-  const isMobile =
-    typeof navigator !== "undefined" &&
-    /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
+  const isMobile = isMobileBrowser();
   const hasPhantomProvider = Boolean(getPhantomProvider());
   const phantomWallet = wallets.find(
     (w) =>
@@ -77,14 +89,12 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
     // browser pre-loaded with the current URL — the wallet modal alone can't reach
     // a non-installed extension.
     if (isMobile && !hasPhantomProvider) {
-      const url = encodeURIComponent(window.location.href);
-      const ref = encodeURIComponent(window.location.origin);
-      window.location.href = `https://phantom.app/ul/browse/${url}?ref=${ref}`;
+      openInPhantom();
       return;
     }
 
-    if (phantomReady || phantomWallet) {
-      const phantomName = (phantomWallet?.adapter.name || "Phantom") as WalletName;
+    if (phantomReady && phantomWallet) {
+      const phantomName = phantomWallet.adapter.name as WalletName;
       select(phantomName);
       setPendingWallet(phantomName);
       return;
