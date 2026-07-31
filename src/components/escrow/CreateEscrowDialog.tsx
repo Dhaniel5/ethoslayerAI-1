@@ -228,6 +228,37 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
             </div>
           </div>
 
+          {/* Token + AI analysis */}
+          <div className="space-y-3">
+            <div>
+              <Label>Token (mint address)</Label>
+              <div className="flex gap-2 mt-1 flex-wrap">
+                {COMMON_TOKENS.map((t) => (
+                  <Button
+                    key={t.mint}
+                    type="button"
+                    size="sm"
+                    variant={tokenMint === t.mint ? "secondary" : "outline"}
+                    onClick={() => { setTokenMint(t.mint); setTokenLabel(t.label); }}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+              <Input
+                value={tokenMint}
+                onChange={(e) => { setTokenMint(e.target.value); setTokenLabel(""); }}
+                placeholder="Or paste a custom Solana token mint address"
+                className="font-mono text-xs mt-2"
+              />
+              {tokenMint && !isValidSolanaAddress(tokenMint) && (
+                <p className="text-xs text-destructive mt-1">Invalid token mint address.</p>
+              )}
+            </div>
+            <TokenAnalysisCard analysis={analysis} loading={analyzing} />
+          </div>
+
+
           <div>
             <Label>Agreement description</Label>
             <Textarea
