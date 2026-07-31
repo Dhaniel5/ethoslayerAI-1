@@ -15,6 +15,10 @@ import { ESCROW_VAULT_ADDRESS } from "@/lib/solanaConfig";
 import { TrustBadge } from "./StatusBadges";
 import { useToast } from "@/hooks/use-toast";
 import WalletConnectButton from "@/components/WalletConnectButton";
+import TokenAnalysisCard from "./TokenAnalysisCard";
+import { analyzeToken, COMMON_TOKENS, type TokenAnalysis } from "@/lib/tokenAnalysis";
+import { escrowShareLink } from "@/lib/escrow";
+import { Copy, Check } from "lucide-react";
 
 interface Props {
   open: boolean;
