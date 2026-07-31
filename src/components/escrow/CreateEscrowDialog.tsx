@@ -40,6 +40,31 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
     { title: "", amount: "" },
   ]);
   const [submitting, setSubmitting] = useState(false);
+  const [tokenMint, setTokenMint] = useState("");
+  const [tokenLabel, setTokenLabel] = useState("");
+  const [analysis, setAnalysis] = useState<TokenAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Auto-run AI token analysis whenever a valid mint is entered/selected.
+  useEffect(() => {
+    const mint = tokenMint.trim();
+    if (!isValidSolanaAddress(mint)) { setAnalysis(null); return; }
+    let cancelled = false;
+    setAnalyzing(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await analyzeToken(mint, tokenLabel || undefined);
+        if (!cancelled) setAnalysis(res);
+      } catch {
+        if (!cancelled) setAnalysis(null);
+      } finally {
+        if (!cancelled) setAnalyzing(false);
+      }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(t); setAnalyzing(false); };
+  }, [tokenMint, tokenLabel]);
 
   // Auto-fill payer from connected wallet.
   useEffect(() => {
