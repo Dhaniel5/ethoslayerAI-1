@@ -69,7 +69,18 @@ export interface CreateEscrowInput {
   description?: string;
   expires_at?: string | null;
   trust: TrustResult;
+  token_mint?: string;
+  token_label?: string;
+  ai_analysis?: any;
   milestones?: { title: string; amount_audd: number }[];
+}
+
+/** Public shareable escrow link for the payee (no account required). */
+export function escrowShareLink(id: string) {
+  const base =
+    (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined) ||
+    (typeof window !== "undefined" ? window.location.origin : "https://ethoslayers.netlify.app");
+  return `${base.replace(/\/$/, "")}/escrow/${id}`;
 }
 
 export interface ChainContext {
