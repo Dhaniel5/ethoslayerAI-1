@@ -38,6 +38,7 @@ const App = () => (
             <Route path="/settlement/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
             <Route path="/settlement/:id" element={<ProtectedRoute><EscrowDetail /></ProtectedRoute>} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/escrow/:id" element={<PublicEscrowView />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
