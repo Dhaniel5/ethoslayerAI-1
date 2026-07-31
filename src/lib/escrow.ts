@@ -134,6 +134,9 @@ export async function createEscrow(
       trust_level: input.trust.level,
       trust_factors: input.trust.factors,
       expires_at: input.expires_at ?? null,
+      token_mint: input.token_mint ?? null,
+      token_label: input.token_label ?? null,
+      ai_analysis: input.ai_analysis ?? null,
     })
     .select()
     .single();
