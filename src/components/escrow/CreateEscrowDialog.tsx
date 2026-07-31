@@ -161,7 +161,45 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
           </DialogDescription>
         </DialogHeader>
 
+        {createdId ? (
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+              <p className="text-sm font-semibold text-emerald-400 mb-1">Escrow created and AUDD locked.</p>
+              <p className="text-xs text-muted-foreground">Share the link below with your payee.</p>
+            </div>
+
+            <div>
+              <Label>Shareable escrow link</Label>
+              <div className="flex gap-2 mt-1">
+                <Input readOnly value={escrowShareLink(createdId)} className="font-mono text-xs" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(escrowShareLink(createdId));
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                    toast({ title: "Link copied" });
+                  }}
+                  className="gap-1.5 shrink-0"
+                >
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} Copy Link
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Share this link with your payee via WhatsApp, Telegram, or email. They do not need an
+                EthosLayer account to view and accept the escrow.
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button onClick={() => { setCreatedId(null); onOpenChange(false); }}>Done</Button>
+            </DialogFooter>
+          </div>
+        ) : (
+        <>
         <div className="space-y-5 py-2">
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Payer wallet</Label>
