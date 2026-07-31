@@ -32,6 +32,9 @@ const Header = () => {
             <span className="gradient-text">Ethos</span>
             <span className="text-foreground">Layer</span>
           </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-400">
+            Testnet
+          </span>
         </Link>
 
         <nav className="flex items-center gap-5">
