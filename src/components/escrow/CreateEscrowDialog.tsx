@@ -103,6 +103,7 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
     setPayer(""); setReceiver(""); setAmount(""); setDescription("");
     setExpiresAt(""); setUseMilestones(false);
     setMilestones([{ title: "", amount: "" }]);
+    setTokenMint(""); setTokenLabel(""); setAnalysis(null);
   };
 
   const walletMatchesPayer = connected && publicKey?.toBase58() === payer;
@@ -119,7 +120,7 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
     if (!canSubmit || !publicKey || !signTransaction) return;
     setSubmitting(true);
     try {
-      await createEscrow(
+      const created = await createEscrow(
         {
           payer_wallet: payer,
           receiver_wallet: receiver,
@@ -127,6 +128,9 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
           description: description.trim() || undefined,
           expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
           trust,
+          token_mint: tokenMint.trim() || undefined,
+          token_label: tokenLabel.trim() || undefined,
+          ai_analysis: analysis ?? undefined,
           milestones: useMilestones
             ? milestones
                 .filter((m) => m.title.trim() && Number(m.amount) > 0)
@@ -136,9 +140,10 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
         { connection, signer: { publicKey, signTransaction } },
       );
       toast({ title: "Escrow created", description: "AUDD locked on-chain in the vault." });
+      setCreatedId(created.id);
       reset();
-      onOpenChange(false);
       onCreated();
+
     } catch (e: any) {
       toast({ title: "Could not create escrow", description: e.message, variant: "destructive" });
     } finally {
