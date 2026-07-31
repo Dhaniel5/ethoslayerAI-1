@@ -24,14 +24,20 @@ Deno.serve(async (req) => {
     }
 
     let priceData: unknown = null;
-    try {
-      const r = await fetch(`https://price.jup.ag/v4/price?ids=${encodeURIComponent(mintAddress)}`);
-      if (r.ok) {
+    const endpoints = [
+      `https://price.jup.ag/v4/price?ids=${encodeURIComponent(mintAddress)}`,
+      `https://lite-api.jup.ag/price/v3?ids=${encodeURIComponent(mintAddress)}`,
+    ];
+    for (const url of endpoints) {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) continue;
         const j = await r.json();
-        priceData = j?.data?.[mintAddress] ?? null;
+        priceData = j?.data?.[mintAddress] ?? j?.[mintAddress] ?? null;
+        if (priceData) break;
+      } catch (_) {
+        // try next endpoint
       }
-    } catch (_) {
-      priceData = null;
     }
 
     const key = Deno.env.get("LOVABLE_API_KEY");
