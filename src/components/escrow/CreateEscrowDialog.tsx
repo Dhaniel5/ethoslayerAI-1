@@ -15,6 +15,10 @@ import { ESCROW_VAULT_ADDRESS } from "@/lib/solanaConfig";
 import { TrustBadge } from "./StatusBadges";
 import { useToast } from "@/hooks/use-toast";
 import WalletConnectButton from "@/components/WalletConnectButton";
+import TokenAnalysisCard from "./TokenAnalysisCard";
+import { analyzeToken, COMMON_TOKENS, type TokenAnalysis } from "@/lib/tokenAnalysis";
+import { escrowShareLink } from "@/lib/escrow";
+import { Copy, Check } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -36,6 +40,31 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
     { title: "", amount: "" },
   ]);
   const [submitting, setSubmitting] = useState(false);
+  const [tokenMint, setTokenMint] = useState("");
+  const [tokenLabel, setTokenLabel] = useState("");
+  const [analysis, setAnalysis] = useState<TokenAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Auto-run AI token analysis whenever a valid mint is entered/selected.
+  useEffect(() => {
+    const mint = tokenMint.trim();
+    if (!isValidSolanaAddress(mint)) { setAnalysis(null); return; }
+    let cancelled = false;
+    setAnalyzing(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await analyzeToken(mint, tokenLabel || undefined);
+        if (!cancelled) setAnalysis(res);
+      } catch {
+        if (!cancelled) setAnalysis(null);
+      } finally {
+        if (!cancelled) setAnalyzing(false);
+      }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(t); setAnalyzing(false); };
+  }, [tokenMint, tokenLabel]);
 
   // Auto-fill payer from connected wallet.
   useEffect(() => {
@@ -74,6 +103,7 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
     setPayer(""); setReceiver(""); setAmount(""); setDescription("");
     setExpiresAt(""); setUseMilestones(false);
     setMilestones([{ title: "", amount: "" }]);
+    setTokenMint(""); setTokenLabel(""); setAnalysis(null);
   };
 
   const walletMatchesPayer = connected && publicKey?.toBase58() === payer;
@@ -90,7 +120,7 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
     if (!canSubmit || !publicKey || !signTransaction) return;
     setSubmitting(true);
     try {
-      await createEscrow(
+      const created = await createEscrow(
         {
           payer_wallet: payer,
           receiver_wallet: receiver,
@@ -98,6 +128,9 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
           description: description.trim() || undefined,
           expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
           trust,
+          token_mint: tokenMint.trim() || undefined,
+          token_label: tokenLabel.trim() || undefined,
+          ai_analysis: analysis ?? undefined,
           milestones: useMilestones
             ? milestones
                 .filter((m) => m.title.trim() && Number(m.amount) > 0)
@@ -107,9 +140,10 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
         { connection, signer: { publicKey, signTransaction } },
       );
       toast({ title: "Escrow created", description: "AUDD locked on-chain in the vault." });
+      setCreatedId(created.id);
       reset();
-      onOpenChange(false);
       onCreated();
+
     } catch (e: any) {
       toast({ title: "Could not create escrow", description: e.message, variant: "destructive" });
     } finally {
@@ -127,7 +161,45 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
           </DialogDescription>
         </DialogHeader>
 
+        {createdId ? (
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+              <p className="text-sm font-semibold text-emerald-400 mb-1">Escrow created and AUDD locked.</p>
+              <p className="text-xs text-muted-foreground">Share the link below with your payee.</p>
+            </div>
+
+            <div>
+              <Label>Shareable escrow link</Label>
+              <div className="flex gap-2 mt-1">
+                <Input readOnly value={escrowShareLink(createdId)} className="font-mono text-xs" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(escrowShareLink(createdId));
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                    toast({ title: "Link copied" });
+                  }}
+                  className="gap-1.5 shrink-0"
+                >
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} Copy Link
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Share this link with your payee via WhatsApp, Telegram, or email. They do not need an
+                EthosLayer account to view and accept the escrow.
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button onClick={() => { setCreatedId(null); onOpenChange(false); }}>Done</Button>
+            </DialogFooter>
+          </div>
+        ) : (
+        <>
         <div className="space-y-5 py-2">
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Payer wallet</Label>
@@ -155,6 +227,37 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
               <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
             </div>
           </div>
+
+          {/* Token + AI analysis */}
+          <div className="space-y-3">
+            <div>
+              <Label>Token (mint address)</Label>
+              <div className="flex gap-2 mt-1 flex-wrap">
+                {COMMON_TOKENS.map((t) => (
+                  <Button
+                    key={t.mint}
+                    type="button"
+                    size="sm"
+                    variant={tokenMint === t.mint ? "secondary" : "outline"}
+                    onClick={() => { setTokenMint(t.mint); setTokenLabel(t.label); }}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+              <Input
+                value={tokenMint}
+                onChange={(e) => { setTokenMint(e.target.value); setTokenLabel(""); }}
+                placeholder="Or paste a custom Solana token mint address"
+                className="font-mono text-xs mt-2"
+              />
+              {tokenMint && !isValidSolanaAddress(tokenMint) && (
+                <p className="text-xs text-destructive mt-1">Invalid token mint address.</p>
+              )}
+            </div>
+            <TokenAnalysisCard analysis={analysis} loading={analyzing} />
+          </div>
+
 
           <div>
             <Label>Agreement description</Label>
@@ -294,6 +397,8 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Lock AUDD & Create"}
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );

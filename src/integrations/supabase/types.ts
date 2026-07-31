@@ -134,6 +134,7 @@ export type Database = {
       }
       escrows: {
         Row: {
+          ai_analysis: Json | null
           amount_audd: number
           condition_type: string
           created_at: string
@@ -141,10 +142,16 @@ export type Database = {
           disputed_at: string | null
           expires_at: string | null
           id: string
+          payee_accepted: boolean
+          payee_accepted_at: string | null
+          payee_requested_audd: boolean
+          payee_wallet: string | null
           payer_wallet: string
           receiver_wallet: string
           released_at: string | null
           status: Database["public"]["Enums"]["escrow_status"]
+          token_label: string | null
+          token_mint: string | null
           trust_factors: Json | null
           trust_level: Database["public"]["Enums"]["trust_level"] | null
           trust_score: number | null
@@ -152,6 +159,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_analysis?: Json | null
           amount_audd: number
           condition_type?: string
           created_at?: string
@@ -159,10 +167,16 @@ export type Database = {
           disputed_at?: string | null
           expires_at?: string | null
           id?: string
+          payee_accepted?: boolean
+          payee_accepted_at?: string | null
+          payee_requested_audd?: boolean
+          payee_wallet?: string | null
           payer_wallet: string
           receiver_wallet: string
           released_at?: string | null
           status?: Database["public"]["Enums"]["escrow_status"]
+          token_label?: string | null
+          token_mint?: string | null
           trust_factors?: Json | null
           trust_level?: Database["public"]["Enums"]["trust_level"] | null
           trust_score?: number | null
@@ -170,6 +184,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_analysis?: Json | null
           amount_audd?: number
           condition_type?: string
           created_at?: string
@@ -177,10 +192,16 @@ export type Database = {
           disputed_at?: string | null
           expires_at?: string | null
           id?: string
+          payee_accepted?: boolean
+          payee_accepted_at?: string | null
+          payee_requested_audd?: boolean
+          payee_wallet?: string | null
           payer_wallet?: string
           receiver_wallet?: string
           released_at?: string | null
           status?: Database["public"]["Enums"]["escrow_status"]
+          token_label?: string | null
+          token_mint?: string | null
           trust_factors?: Json | null
           trust_level?: Database["public"]["Enums"]["trust_level"] | null
           trust_score?: number | null
@@ -292,6 +313,7 @@ export type Database = {
           token_symbol: string
         }[]
       }
+      get_public_escrow: { Args: { _id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -300,6 +322,11 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      payee_accept_escrow: {
+        Args: { _id: string; _wallet: string }
+        Returns: boolean
+      }
+      payee_request_audd: { Args: { _id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

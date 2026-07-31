@@ -69,7 +69,18 @@ export interface CreateEscrowInput {
   description?: string;
   expires_at?: string | null;
   trust: TrustResult;
+  token_mint?: string;
+  token_label?: string;
+  ai_analysis?: any;
   milestones?: { title: string; amount_audd: number }[];
+}
+
+/** Public shareable escrow link for the payee (no account required). */
+export function escrowShareLink(id: string) {
+  const base =
+    (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined) ||
+    (typeof window !== "undefined" ? window.location.origin : "https://ethoslayers.netlify.app");
+  return `${base.replace(/\/$/, "")}/escrow/${id}`;
 }
 
 export interface ChainContext {
@@ -123,6 +134,9 @@ export async function createEscrow(
       trust_level: input.trust.level,
       trust_factors: input.trust.factors,
       expires_at: input.expires_at ?? null,
+      token_mint: input.token_mint ?? null,
+      token_label: input.token_label ?? null,
+      ai_analysis: input.ai_analysis ?? null,
     })
     .select()
     .single();
@@ -309,4 +323,50 @@ export async function listAllEvents(): Promise<(EventRow & { escrow: EscrowRow }
 export function shortAddr(addr: string) {
   if (!addr) return "";
   return addr.length > 12 ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : addr;
+}
+
+/* ---------- Public (no-account) payee access ---------- */
+
+export interface PublicEscrow {
+  id: string;
+  description: string | null;
+  payer_wallet: string;
+  receiver_wallet: string;
+  amount_audd: number;
+  token_mint: string | null;
+  token_label: string | null;
+  ai_analysis: any;
+  condition_type: string;
+  status: EscrowStatus;
+  trust_score: number | null;
+  trust_level: "low" | "medium" | "high" | null;
+  expires_at: string | null;
+  created_at: string;
+  payee_accepted: boolean;
+  payee_wallet: string | null;
+  payee_requested_audd: boolean;
+  milestones: { id: string; title: string; amount_audd: number; position: number; approved: boolean }[];
+}
+
+export async function getPublicEscrow(id: string): Promise<PublicEscrow | null> {
+  const { data, error } = await supabase.rpc("get_public_escrow" as any, { _id: id });
+  if (error) throw error;
+  return (data as unknown as PublicEscrow) ?? null;
+}
+
+export async function payeeAcceptEscrow(id: string, wallet: string) {
+  const { data, error } = await supabase.rpc("payee_accept_escrow" as any, { _id: id, _wallet: wallet });
+  if (error) throw error;
+  return data as unknown as boolean;
+}
+
+export async function payeeRequestAudd(id: string) {
+  const { data, error } = await supabase.rpc("payee_request_audd" as any, { _id: id });
+  if (error) throw error;
+  return data as unknown as boolean;
+}
+
+export function maskAddr(addr?: string | null) {
+  if (!addr) return "";
+  return addr.length > 8 ? `${addr.slice(0, 4)}...${addr.slice(-4)}` : addr;
 }
