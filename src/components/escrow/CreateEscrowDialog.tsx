@@ -366,6 +366,8 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Lock AUDD & Create"}
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );
