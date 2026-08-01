@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
+import Profile from "./pages/Profile";
 import PublicEscrowView from "./pages/PublicEscrowView";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SolanaWalletProvider from "./providers/SolanaWalletProvider";
