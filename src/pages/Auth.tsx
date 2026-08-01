@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Eye, EyeOff, Loader2, Mail, Lock, CheckCircle, ArrowLeft, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Lock, CheckCircle, ArrowLeft, AlertCircle, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ type Mode = "signin" | "signup" | "forgot";
 const AuthPage = () => {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,10 +29,21 @@ const AuthPage = () => {
     setLoading(true);
     try {
       if (mode === "signup") {
+        const uname = username.trim().toLowerCase();
+        if (!/^[a-z0-9_]{3,24}$/.test(uname)) {
+          throw new Error("Username must be 3-24 characters: letters, numbers or underscores.");
+        }
+        const { data: taken } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", uname)
+          .maybeSingle();
+        if (taken) throw new Error("That username is already taken.");
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/` },
+          options: { emailRedirectTo: `${window.location.origin}/`, data: { username: uname } },
         });
         if (error) throw error;
         if (data.session) {
@@ -165,6 +177,24 @@ const AuthPage = () => {
                       />
                     </div>
                   </div>
+
+                  {mode === "signup" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Username</label>
+                      <div className="relative">
+                        <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                        <input
+                          type="text" required value={username}
+                          onChange={(e) => { setUsername(e.target.value); setAuthError(null); }}
+                          placeholder="your_handle"
+                          className="flex h-10 w-full rounded-md border border-input bg-muted/30 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground/60">3-24 characters: letters, numbers, underscores.</p>
+                    </div>
+                  )}
+
+
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">

@@ -124,33 +124,56 @@ export default function PublicEscrowView() {
 
               {escrow.ai_analysis && <TokenAnalysisCard analysis={escrow.ai_analysis} />}
 
-              <div className="glass-card p-5 space-y-3">
-                {escrow.payee_accepted ? (
-                  <p className="text-sm text-emerald-400 flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Accepted by payee {escrow.payee_wallet ? `(${maskAddr(escrow.payee_wallet)})` : ""}
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-xs text-muted-foreground">
-                      You only need to connect your wallet to accept. No registration or account required.
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {!connected ? (
-                        <WalletConnectButton />
-                      ) : (
-                        <Button onClick={accept} disabled={busy} className="gap-1.5">
-                          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                          Accept Escrow
-                        </Button>
-                      )}
-                      <Button variant="outline" onClick={requestAudd} disabled={busy || escrow.payee_requested_audd}>
-                        {escrow.payee_requested_audd ? "AUDD requested" : "Request AUDD instead"}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
+              {(() => {
+                const isOpen =
+                  ["pending", "locked"].includes(escrow.status) &&
+                  (!escrow.expires_at || new Date(escrow.expires_at) > new Date());
+                const walletMismatch =
+                  connected && publicKey
+                    ? publicKey.toBase58() === escrow.payer_wallet
+                      ? "This is the payer wallet — connect the receiver wallet to accept."
+                      : escrow.receiver_wallet && publicKey.toBase58() !== escrow.receiver_wallet
+                        ? "Connected wallet is not the receiver wallet specified by the payer."
+                        : null
+                    : null;
+
+                return (
+                  <div className="glass-card p-5 space-y-3">
+                    {escrow.payee_accepted ? (
+                      <p className="text-sm text-emerald-400 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Accepted by payee {escrow.payee_wallet ? `(${maskAddr(escrow.payee_wallet)})` : ""}
+                      </p>
+                    ) : !isOpen ? (
+                      <p className="text-sm text-muted-foreground">
+                        This escrow is no longer open for acceptance ({escrow.status}).
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          You only need to connect your wallet to accept. No registration or account required.
+                        </p>
+                        {walletMismatch && (
+                          <p className="text-xs text-amber-400">{walletMismatch}</p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {!connected ? (
+                            <WalletConnectButton />
+                          ) : (
+                            <Button onClick={accept} disabled={busy || !!walletMismatch} className="gap-1.5">
+                              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                              Accept Escrow
+                            </Button>
+                          )}
+                          <Button variant="outline" onClick={requestAudd} disabled={busy || escrow.payee_requested_audd}>
+                            {escrow.payee_requested_audd ? "AUDD requested" : "Request AUDD instead"}
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
