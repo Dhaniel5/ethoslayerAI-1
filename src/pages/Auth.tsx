@@ -29,10 +29,21 @@ const AuthPage = () => {
     setLoading(true);
     try {
       if (mode === "signup") {
+        const uname = username.trim().toLowerCase();
+        if (!/^[a-z0-9_]{3,24}$/.test(uname)) {
+          throw new Error("Username must be 3-24 characters: letters, numbers or underscores.");
+        }
+        const { data: taken } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", uname)
+          .maybeSingle();
+        if (taken) throw new Error("That username is already taken.");
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/` },
+          options: { emailRedirectTo: `${window.location.origin}/`, data: { username: uname } },
         });
         if (error) throw error;
         if (data.session) {
