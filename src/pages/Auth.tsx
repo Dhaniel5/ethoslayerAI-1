@@ -12,6 +12,7 @@ type Mode = "signin" | "signup" | "forgot";
 const AuthPage = () => {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
