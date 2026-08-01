@@ -1,9 +1,19 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LogIn, LogOut } from "lucide-react";
+import { LogIn, LogOut, Menu, User as UserIcon, ShieldCheck } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Button } from "@/components/ui/button";
 import WalletConnectButton from "@/components/WalletConnectButton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navLinks = [
   { to: "/analyze", label: "Analyze" },
@@ -17,6 +27,8 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { profile } = useProfile();
+  const { isAdmin } = useIsAdmin();
 
   const handleSignOut = async () => {
     await signOut();
@@ -25,8 +37,8 @@ const Header = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-card border-t-0 border-x-0 rounded-none">
-      <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
+      <div className="container mx-auto px-6 h-16 flex items-center justify-between gap-3">
+        <Link to="/" className="flex items-center gap-3 min-w-0">
           <img src={logo} alt="EthosLayer" className="h-8 w-8" />
           <span className="font-display text-lg font-semibold tracking-tight">
             <span className="gradient-text">Ethos</span>
@@ -37,47 +49,69 @@ const Header = () => {
           </span>
         </Link>
 
-        <nav className="flex items-center gap-5">
-          {navLinks.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                location.pathname === l.to ? "text-primary" : "text-muted-foreground"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
-
-          <div className="pl-2 border-l border-border/50">
-            <WalletConnectButton />
-          </div>
-
-          {user ? (
-            <div className="flex items-center gap-2 pl-2 border-l border-border/50">
-              <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[120px]">
-                {user.email}
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleSignOut}
-                className="gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                Sign Out
-              </Button>
-            </div>
-          ) : (
-            <Link to="/auth" className="pl-2 border-l border-border/50">
-              <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                <LogIn className="h-3.5 w-3.5" />
-                Sign In
-              </Button>
-            </Link>
+        <div className="flex items-center gap-3">
+          {user && (
+            <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[160px]">
+              {profile?.username ? `@${profile.username}` : user.email}
+            </span>
           )}
-        </nav>
+
+          <WalletConnectButton />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="gap-1.5 px-2" aria-label="Open menu">
+                <Menu className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 bg-popover z-50">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Navigate</DropdownMenuLabel>
+              {navLinks.map((l) => (
+                <DropdownMenuItem
+                  key={l.to}
+                  onSelect={() => navigate(l.to)}
+                  className={location.pathname === l.to ? "text-primary" : ""}
+                >
+                  {l.label}
+                </DropdownMenuItem>
+              ))}
+
+              <DropdownMenuSeparator />
+
+              {user ? (
+                <>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground truncate">
+                    {user.email}
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem onSelect={() => navigate("/profile")} className="gap-2">
+                    <UserIcon className="h-3.5 w-3.5" />
+                    Profile
+                    {!profile?.username && (
+                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400">
+                        Set username
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onSelect={() => navigate("/admin")} className="gap-2">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Admin
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={handleSignOut} className="gap-2">
+                    <LogOut className="h-3.5 w-3.5" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem onSelect={() => navigate("/auth")} className="gap-2">
+                  <LogIn className="h-3.5 w-3.5" />
+                  Sign In
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );
