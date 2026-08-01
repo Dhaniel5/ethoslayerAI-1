@@ -178,6 +178,24 @@ const AuthPage = () => {
                     </div>
                   </div>
 
+                  {mode === "signup" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Username</label>
+                      <div className="relative">
+                        <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                        <input
+                          type="text" required value={username}
+                          onChange={(e) => { setUsername(e.target.value); setAuthError(null); }}
+                          placeholder="your_handle"
+                          className="flex h-10 w-full rounded-md border border-input bg-muted/30 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground/60">3-24 characters: letters, numbers, underscores.</p>
+                    </div>
+                  )}
+
+
+
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-medium text-muted-foreground">Password</label>
