@@ -17,6 +17,7 @@ import { DEMO_TOKEN, type TokenAnalysis } from "@/lib/mockData";
 import { fetchTokenAnalysis } from "@/lib/solana";
 import { getIntegrityBreakdown, getGovernanceBreakdown, getManipulationBreakdown } from "@/lib/scoreBreakdown";
 import { saveToWatchlist, isInWatchlist } from "@/lib/watchlist";
+import { recordAnalysis } from "@/lib/analysisHistory";
 import { useToast } from "@/hooks/use-toast";
 
 const AnalyzePage = () => {
