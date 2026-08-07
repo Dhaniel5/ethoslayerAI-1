@@ -12,7 +12,8 @@ export async function recordAnalysis(analysis: TokenAnalysis) {
     token_symbol: analysis.symbol ?? null,
     integrity_score: Math.round(analysis.integrityScore ?? 0),
     governance_score: Math.round(analysis.governanceScore ?? 0),
-    manipulation_score: Math.round(analysis.manipulationScore ?? 0),
+    manipulation_score:
+      analysis.manipulationRisk === "High" ? 80 : analysis.manipulationRisk === "Moderate" ? 50 : 20,
     analysis_data: analysis as any,
   });
 
