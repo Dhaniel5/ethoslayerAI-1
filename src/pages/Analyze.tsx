@@ -52,6 +52,7 @@ const AnalyzePage = () => {
     try {
       const result = await fetchTokenAnalysis(addr);
       setAnalysis(result);
+      recordAnalysis(result);
     } catch (err: any) {
       console.error("Solana fetch error:", err);
       const message = err?.message?.includes("Invalid public key")
