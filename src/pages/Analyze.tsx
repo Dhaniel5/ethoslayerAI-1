@@ -17,6 +17,7 @@ import { DEMO_TOKEN, type TokenAnalysis } from "@/lib/mockData";
 import { fetchTokenAnalysis } from "@/lib/solana";
 import { getIntegrityBreakdown, getGovernanceBreakdown, getManipulationBreakdown } from "@/lib/scoreBreakdown";
 import { saveToWatchlist, isInWatchlist } from "@/lib/watchlist";
+import { recordAnalysis } from "@/lib/analysisHistory";
 import { useToast } from "@/hooks/use-toast";
 
 const AnalyzePage = () => {
@@ -52,6 +53,7 @@ const AnalyzePage = () => {
     try {
       const result = await fetchTokenAnalysis(addr);
       setAnalysis(result);
+      recordAnalysis(result);
     } catch (err: any) {
       console.error("Solana fetch error:", err);
       const message = err?.message?.includes("Invalid public key")
