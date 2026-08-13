@@ -175,11 +175,50 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
 
 
   if (!publicKey) {
+    // Mobile browser with no injected provider: the only reliable path is deeplinking
+    // into the wallet's own in-app browser (or Android's Mobile Wallet Adapter).
+    if (isMobile && !phantomReady && !solflareReady) {
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size={size} variant={variant} disabled={connecting} className="gap-1.5">
+              <Wallet className="h-3.5 w-3.5" />
+              {connecting ? "Connecting…" : "Connect Wallet"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64 bg-popover z-50">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Choose your mobile wallet
+            </DropdownMenuLabel>
+            {mobileWalletAdapter && (
+              <DropdownMenuItem
+                className="gap-2 cursor-pointer"
+                onSelect={() => connectNamed(mobileWalletAdapter.adapter.name)}
+              >
+                <Smartphone className="h-3.5 w-3.5" /> Connect installed wallet
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={() => openInPhantom()}>
+              <ExternalLink className="h-3.5 w-3.5" /> Open in Phantom app
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={() => openInSolflare()}>
+              <ExternalLink className="h-3.5 w-3.5" /> Open in Solflare app
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <p className="px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+              Your wallet app opens EthosLayer in its built-in browser, where you can approve the
+              connection.
+            </p>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+
     return (
       <Button
         size={size}
         variant={variant}
-        onClick={handleConnect}
+        onClick={handleDesktopConnect}
         disabled={connecting}
         className="gap-1.5"
       >
@@ -188,6 +227,7 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
       </Button>
     );
   }
+
 
   const addr = publicKey.toBase58();
 
