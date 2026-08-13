@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { WalletReadyState, type WalletName } from "@solana/wallet-adapter-base";
-import { Wallet, LogOut, Copy, ExternalLink } from "lucide-react";
+import { Wallet, LogOut, Copy, ExternalLink, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-  DropdownMenuSeparator,
+  DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { explorerAddrUrl } from "@/lib/solanaConfig";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 export function shortPubkey(pk: string) {
   return pk.length > 12 ? `${pk.slice(0, 4)}…${pk.slice(-4)}` : pk;
 }
+
+const PUBLIC_APP_ORIGIN = "https://ethoslayer.lovable.app";
 
 function getPhantomProvider() {
   if (typeof window === "undefined") return null;
@@ -24,6 +26,12 @@ function getPhantomProvider() {
   return null;
 }
 
+function getSolflareProvider() {
+  if (typeof window === "undefined") return null;
+  const sf = (window as any).solflare;
+  return sf?.isSolflare ? sf : null;
+}
+
 function isMobileBrowser() {
   if (typeof navigator === "undefined") return false;
   return (
@@ -32,10 +40,46 @@ function isMobileBrowser() {
   );
 }
 
+/**
+ * The deeplink target must be a URL the wallet's in-app browser can load on its own.
+ * Inside the Lovable preview iframe `window.location.href` is a sandboxed preview URL,
+ * so fall back to the published origin with the same path.
+ */
+function deeplinkTargetUrl() {
+  const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const isFramed = window.self !== window.top;
+  const isPreviewHost = /lovableproject\.com|id-preview/.test(window.location.hostname);
+  if (isFramed || isPreviewHost) return `${PUBLIC_APP_ORIGIN}${path}`;
+  return window.location.href;
+}
+
+/** Navigate the top-most window so the deeplink is not swallowed by an iframe. */
+function hardNavigate(url: string) {
+  try {
+    if (window.top && window.top !== window.self) {
+      window.top.location.href = url;
+      return;
+    }
+  } catch {
+    // cross-origin top — fall through
+  }
+  try {
+    window.location.href = url;
+  } catch {
+    window.open(url, "_blank");
+  }
+}
+
 function openInPhantom() {
-  const currentUrl = encodeURIComponent(window.location.href);
-  const referrer = encodeURIComponent(window.location.origin);
-  window.location.assign(`https://phantom.app/ul/browse/${currentUrl}?ref=${referrer}`);
+  const target = encodeURIComponent(deeplinkTargetUrl());
+  const ref = encodeURIComponent(PUBLIC_APP_ORIGIN);
+  hardNavigate(`https://phantom.app/ul/browse/${target}?ref=${ref}`);
+}
+
+function openInSolflare() {
+  const target = encodeURIComponent(deeplinkTargetUrl());
+  const ref = encodeURIComponent(PUBLIC_APP_ORIGIN);
+  hardNavigate(`https://solflare.com/ul/v1/browse/${target}?ref=${ref}`);
 }
 
 interface Props {
@@ -48,18 +92,48 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
   const { setVisible } = useWalletModal();
   const { toast } = useToast();
   const [pendingWallet, setPendingWallet] = useState<WalletName | null>(null);
+  const [injected, setInjected] = useState(() => ({
+    phantom: Boolean(getPhantomProvider()),
+    solflare: Boolean(getSolflareProvider()),
+  }));
 
   const isMobile = isMobileBrowser();
-  const hasPhantomProvider = Boolean(getPhantomProvider());
-  const phantomWallet = wallets.find(
-    (w) =>
-      w.adapter.name === "Phantom" &&
-      (w.readyState === WalletReadyState.Installed || w.readyState === WalletReadyState.Loadable),
+
+  // Wallet in-app browsers inject their provider slightly after first paint.
+  // Poll briefly so the button doesn't wrongly think "no wallet installed".
+  useEffect(() => {
+    if (injected.phantom && injected.solflare) return;
+    let tries = 0;
+    const id = window.setInterval(() => {
+      tries += 1;
+      const next = {
+        phantom: Boolean(getPhantomProvider()),
+        solflare: Boolean(getSolflareProvider()),
+      };
+      setInjected((prev) =>
+        prev.phantom === next.phantom && prev.solflare === next.solflare ? prev : next,
+      );
+      if ((next.phantom && next.solflare) || tries > 20) window.clearInterval(id);
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [injected.phantom, injected.solflare]);
+
+  const findWallet = useCallback(
+    (name: string) =>
+      wallets.find(
+        (w) =>
+          w.adapter.name === name &&
+          (w.readyState === WalletReadyState.Installed ||
+            w.readyState === WalletReadyState.Loadable),
+      ),
+    [wallets],
   );
-  const phantomReady =
-    hasPhantomProvider ||
-    phantomWallet?.readyState === WalletReadyState.Installed ||
-    phantomWallet?.readyState === WalletReadyState.Loadable;
+
+  const phantomWallet = findWallet("Phantom");
+  const solflareWallet = findWallet("Solflare");
+  const phantomReady = injected.phantom || Boolean(phantomWallet);
+  const solflareReady = injected.solflare || Boolean(solflareWallet);
+  const mobileWalletAdapter = wallets.find((w) => w.adapter.name.includes("Mobile Wallet Adapter"));
 
   useEffect(() => {
     if (!pendingWallet || !wallet || wallet.adapter.name !== pendingWallet || publicKey) return;
@@ -68,12 +142,12 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
     connect()
       .catch((err) => {
         if (cancelled) return;
+        const message = err instanceof Error ? err.message : "The wallet did not approve the connection.";
         toast({
           title: "Wallet connection failed",
-          description: err instanceof Error ? err.message : "Phantom did not approve the connection.",
+          description: message,
           variant: "destructive",
         });
-        setVisible(true);
       })
       .finally(() => {
         if (!cancelled) setPendingWallet(null);
@@ -82,30 +156,23 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
     return () => {
       cancelled = true;
     };
-  }, [connect, pendingWallet, publicKey, setVisible, toast, wallet]);
+  }, [connect, pendingWallet, publicKey, toast, wallet]);
 
-  const handleConnect = () => {
-    // On mobile browsers without the Phantom in-app browser, deeplink into Phantom's
-    // browser pre-loaded with the current URL — the wallet modal alone can't reach
-    // a non-installed extension.
-    if (isMobile && !hasPhantomProvider) {
-      openInPhantom();
-      return;
-    }
-
-    if (phantomReady && phantomWallet) {
-      const phantomName = phantomWallet.adapter.name as WalletName;
-      select(phantomName);
-      setPendingWallet(phantomName);
-      return;
-    }
-
-    setVisible(true);
-    toast({
-      title: "Phantom not detected",
-      description: "Install the Phantom browser extension, or open this site inside the Phantom mobile app browser.",
-    });
+  const connectNamed = (name?: string) => {
+    const entry = name ? wallets.find((w) => w.adapter.name === name) : undefined;
+    if (!entry) return false;
+    const walletName = entry.adapter.name as WalletName;
+    select(walletName);
+    setPendingWallet(walletName);
+    return true;
   };
+
+  const handleDesktopConnect = () => {
+    if (phantomReady && connectNamed("Phantom")) return;
+    if (solflareReady && connectNamed("Solflare")) return;
+    setVisible(true);
+  };
+
 
   if (!publicKey) {
     return (
