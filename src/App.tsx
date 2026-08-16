@@ -17,6 +17,8 @@ import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 import PublicEscrowView from "./pages/PublicEscrowView";
+import Disputes from "./pages/Disputes";
+import DisputeDetail from "./pages/DisputeDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SolanaWalletProvider from "./providers/SolanaWalletProvider";
 
@@ -38,6 +40,8 @@ const App = () => (
             <Route path="/settlement" element={<ProtectedRoute><Settlement /></ProtectedRoute>} />
             <Route path="/settlement/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
             <Route path="/settlement/:id" element={<ProtectedRoute><EscrowDetail /></ProtectedRoute>} />
+            <Route path="/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
+            <Route path="/disputes/:id" element={<ProtectedRoute><DisputeDetail /></ProtectedRoute>} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/escrow/:id" element={<PublicEscrowView />} />
             <Route path="/reset-password" element={<ResetPassword />} />
