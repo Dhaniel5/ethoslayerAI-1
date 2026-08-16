@@ -635,6 +635,65 @@ export type Database = {
           token_symbol: string
         }[]
       }
+      dispute_add_evidence: {
+        Args: {
+          _description?: string
+          _dispute_id: string
+          _file_name?: string
+          _kind: string
+          _link_url?: string
+          _storage_path?: string
+        }
+        Returns: string
+      }
+      dispute_escalate: {
+        Args: { _dispute_id: string; _note?: string }
+        Returns: boolean
+      }
+      dispute_notifications_mark_read: {
+        Args: { _ids?: string[] }
+        Returns: boolean
+      }
+      dispute_notify: {
+        Args: {
+          _body: string
+          _dispute_id: string
+          _title: string
+          _type: string
+          _user_id: string
+        }
+        Returns: undefined
+      }
+      dispute_open: {
+        Args: { _escrow_id: string; _milestone_id?: string; _reason: string }
+        Returns: string
+      }
+      dispute_propose_resolution: {
+        Args: {
+          _amount_buyer: number
+          _amount_seller: number
+          _dispute_id: string
+          _kind: string
+          _note?: string
+        }
+        Returns: string
+      }
+      dispute_respond_proposal: {
+        Args: { _action: string; _proposal_id: string }
+        Returns: boolean
+      }
+      dispute_role: {
+        Args: { _escrow: Database["public"]["Tables"]["escrows"]["Row"] }
+        Returns: string
+      }
+      dispute_send_message: {
+        Args: { _body: string; _dispute_id: string }
+        Returns: string
+      }
+      dispute_withdraw: {
+        Args: { _dispute_id: string; _note?: string }
+        Returns: boolean
+      }
       get_public_escrow: { Args: { _id: string }; Returns: Json }
       has_role: {
         Args: {
