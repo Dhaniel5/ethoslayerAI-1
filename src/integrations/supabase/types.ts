@@ -53,6 +53,292 @@ export type Database = {
         }
         Relationships: []
       }
+      dispute_events: {
+        Row: {
+          actor_id: string | null
+          actor_label: string | null
+          created_at: string
+          dispute_id: string
+          event_type: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          dispute_id: string
+          event_type: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          dispute_id?: string
+          event_type?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_events_dispute_id_fkey"
+            columns: ["dispute_id"]
+            isOneToOne: false
+            referencedRelation: "disputes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_evidence: {
+        Row: {
+          created_at: string
+          description: string | null
+          dispute_id: string
+          file_name: string | null
+          id: string
+          kind: string
+          link_url: string | null
+          storage_path: string | null
+          submitted_by: string | null
+          submitted_by_role: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          dispute_id: string
+          file_name?: string | null
+          id?: string
+          kind: string
+          link_url?: string | null
+          storage_path?: string | null
+          submitted_by?: string | null
+          submitted_by_role: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          dispute_id?: string
+          file_name?: string | null
+          id?: string
+          kind?: string
+          link_url?: string | null
+          storage_path?: string | null
+          submitted_by?: string | null
+          submitted_by_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_evidence_dispute_id_fkey"
+            columns: ["dispute_id"]
+            isOneToOne: false
+            referencedRelation: "disputes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_messages: {
+        Row: {
+          author_id: string | null
+          author_role: string
+          body: string
+          created_at: string
+          dispute_id: string
+          id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_role: string
+          body: string
+          created_at?: string
+          dispute_id: string
+          id?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_role?: string
+          body?: string
+          created_at?: string
+          dispute_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_messages_dispute_id_fkey"
+            columns: ["dispute_id"]
+            isOneToOne: false
+            referencedRelation: "disputes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          dispute_id: string | null
+          id: string
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          dispute_id?: string | null
+          id?: string
+          read_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          dispute_id?: string | null
+          id?: string
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_notifications_dispute_id_fkey"
+            columns: ["dispute_id"]
+            isOneToOne: false
+            referencedRelation: "disputes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_proposals: {
+        Row: {
+          amount_buyer: number
+          amount_seller: number
+          created_at: string
+          dispute_id: string
+          id: string
+          kind: string
+          note: string | null
+          proposed_by: string
+          proposed_by_role: string
+          responded_at: string | null
+          responded_by: string | null
+          status: Database["public"]["Enums"]["proposal_status"]
+        }
+        Insert: {
+          amount_buyer?: number
+          amount_seller?: number
+          created_at?: string
+          dispute_id: string
+          id?: string
+          kind: string
+          note?: string | null
+          proposed_by: string
+          proposed_by_role: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: Database["public"]["Enums"]["proposal_status"]
+        }
+        Update: {
+          amount_buyer?: number
+          amount_seller?: number
+          created_at?: string
+          dispute_id?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          proposed_by?: string
+          proposed_by_role?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: Database["public"]["Enums"]["proposal_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_proposals_dispute_id_fkey"
+            columns: ["dispute_id"]
+            isOneToOne: false
+            referencedRelation: "disputes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disputes: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string
+          escalated_at: string | null
+          escrow_id: string
+          id: string
+          last_activity_at: string
+          milestone_id: string | null
+          opened_by: string
+          opened_by_role: string
+          reason: string
+          ref: string
+          resolution: Json | null
+          resolution_tx: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["dispute_status"]
+          updated_at: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string
+          escalated_at?: string | null
+          escrow_id: string
+          id?: string
+          last_activity_at?: string
+          milestone_id?: string | null
+          opened_by: string
+          opened_by_role?: string
+          reason: string
+          ref?: string
+          resolution?: Json | null
+          resolution_tx?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["dispute_status"]
+          updated_at?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string
+          escalated_at?: string | null
+          escrow_id?: string
+          id?: string
+          last_activity_at?: string
+          milestone_id?: string | null
+          opened_by?: string
+          opened_by_role?: string
+          reason?: string
+          ref?: string
+          resolution?: Json | null
+          resolution_tx?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["dispute_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disputes_escrow_id_fkey"
+            columns: ["escrow_id"]
+            isOneToOne: false
+            referencedRelation: "escrows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disputes_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "escrow_milestones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       escrow_events: {
         Row: {
           amount_audd: number | null
@@ -145,8 +431,12 @@ export type Database = {
           payee_accepted: boolean
           payee_accepted_at: string | null
           payee_requested_audd: boolean
+          payee_user_id: string | null
           payee_wallet: string | null
           payer_wallet: string
+          pre_dispute_status:
+            | Database["public"]["Enums"]["escrow_status"]
+            | null
           receiver_wallet: string
           released_at: string | null
           status: Database["public"]["Enums"]["escrow_status"]
@@ -170,8 +460,12 @@ export type Database = {
           payee_accepted?: boolean
           payee_accepted_at?: string | null
           payee_requested_audd?: boolean
+          payee_user_id?: string | null
           payee_wallet?: string | null
           payer_wallet: string
+          pre_dispute_status?:
+            | Database["public"]["Enums"]["escrow_status"]
+            | null
           receiver_wallet: string
           released_at?: string | null
           status?: Database["public"]["Enums"]["escrow_status"]
@@ -195,8 +489,12 @@ export type Database = {
           payee_accepted?: boolean
           payee_accepted_at?: string | null
           payee_requested_audd?: boolean
+          payee_user_id?: string | null
           payee_wallet?: string | null
           payer_wallet?: string
+          pre_dispute_status?:
+            | Database["public"]["Enums"]["escrow_status"]
+            | null
           receiver_wallet?: string
           released_at?: string | null
           status?: Database["public"]["Enums"]["escrow_status"]
@@ -346,6 +644,8 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_dispute_party: { Args: { _dispute_id: string }; Returns: boolean }
+      is_escrow_party: { Args: { _escrow_id: string }; Returns: boolean }
       payee_accept_escrow: {
         Args: { _id: string; _wallet: string }
         Returns: boolean
@@ -354,6 +654,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      dispute_status:
+        | "open"
+        | "under_review"
+        | "negotiating"
+        | "resolved"
+        | "cancelled"
+        | "escalated"
       escrow_event_type:
         | "created"
         | "locked"
@@ -371,6 +678,8 @@ export type Database = {
         | "disputed"
         | "expired"
         | "cancelled"
+        | "escalated"
+      proposal_status: "pending" | "accepted" | "rejected" | "superseded"
       trust_level: "low" | "medium" | "high"
     }
     CompositeTypes: {
@@ -500,6 +809,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      dispute_status: [
+        "open",
+        "under_review",
+        "negotiating",
+        "resolved",
+        "cancelled",
+        "escalated",
+      ],
       escrow_event_type: [
         "created",
         "locked",
@@ -518,7 +835,9 @@ export const Constants = {
         "disputed",
         "expired",
         "cancelled",
+        "escalated",
       ],
+      proposal_status: ["pending", "accepted", "rejected", "superseded"],
       trust_level: ["low", "medium", "high"],
     },
   },
