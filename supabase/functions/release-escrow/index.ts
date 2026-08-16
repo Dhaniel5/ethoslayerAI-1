@@ -238,16 +238,80 @@ Deno.serve(async (req) => {
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userRes.user) throw new Error("Unauthorized");
 
-    const { escrow_id, milestone_id } = await req.json();
+    const { escrow_id, milestone_id, dispute_id } = await req.json();
     if (!escrow_id) throw new Error("escrow_id is required");
 
     const { data: escrow, error: eErr } = await supabase
       .from("escrows").select("*").eq("id", escrow_id).maybeSingle();
     if (eErr || !escrow) throw new Error("Escrow not found");
-    if (escrow.user_id !== userRes.user.id) throw new Error("Forbidden");
+    const isParty =
+      escrow.user_id === userRes.user.id || escrow.payee_user_id === userRes.user.id;
+    if (!isParty) throw new Error("Forbidden");
     if (escrow.status === "released") throw new Error("Already released");
 
     const vault = loadVault();
+
+    // ---- Dispute settlement path (split / refund / release per accepted resolution) ----
+    if (dispute_id) {
+      const { data: dispute } = await supabase
+        .from("disputes").select("*").eq("id", dispute_id).maybeSingle();
+      if (!dispute) throw new Error("Dispute not found");
+      if (dispute.escrow_id !== escrow_id) throw new Error("Dispute/escrow mismatch");
+      if (dispute.status !== "resolved") throw new Error("This dispute has no accepted resolution yet");
+      if (dispute.resolution_tx) throw new Error("This resolution has already been settled");
+
+      const res = dispute.resolution ?? {};
+      const buyerAmount = Number(res.amount_buyer ?? 0);
+      const sellerAmount = Number(res.amount_seller ?? 0);
+      const sigs: string[] = [];
+
+      if (sellerAmount > 0) {
+        const s = await transferAudd(vault, escrow.receiver_wallet, sellerAmount);
+        sigs.push(s);
+        await supabase.from("escrow_events").insert({
+          escrow_id, event_type: "released", amount_audd: sellerAmount, tx_signature: s,
+          note: `Dispute ${dispute.ref}: released to seller`,
+        });
+        await supabase.from("dispute_events").insert({
+          dispute_id, event_type: "funds_released", actor_label: "system",
+          note: `${sellerAmount} AUDD to seller · ${s}`,
+        });
+      }
+      if (buyerAmount > 0) {
+        const s = await transferAudd(vault, escrow.payer_wallet, buyerAmount);
+        sigs.push(s);
+        await supabase.from("escrow_events").insert({
+          escrow_id, event_type: "released", amount_audd: buyerAmount, tx_signature: s,
+          note: `Dispute ${dispute.ref}: refunded to buyer`,
+        });
+        await supabase.from("dispute_events").insert({
+          dispute_id, event_type: "funds_refunded", actor_label: "system",
+          note: `${buyerAmount} AUDD to buyer · ${s}`,
+        });
+      }
+
+      const settlementSig = sigs[0] ?? null;
+      await supabase.from("disputes")
+        .update({ resolution_tx: settlementSig, last_activity_at: new Date().toISOString() })
+        .eq("id", dispute_id).is("resolution_tx", null);
+      await supabase.from("escrows")
+        .update({ status: "released", released_at: new Date().toISOString() })
+        .eq("id", escrow_id);
+      await supabase.from("dispute_messages").insert({
+        dispute_id, author_role: "system",
+        body: "Settlement executed on-chain. The dispute is fully closed.",
+      });
+
+      return new Response(JSON.stringify({ signature: settlementSig, signatures: sigs, vault: vault.publicKeyBase58 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (escrow.user_id !== userRes.user.id) throw new Error("Forbidden");
+    if (["disputed", "escalated"].includes(escrow.status)) {
+      throw new Error("An active dispute is blocking settlement. Resolve or withdraw the dispute first.");
+    }
+
     let amount = Number(escrow.amount_audd);
     let milestone: any = null;
     if (milestone_id) {
@@ -261,6 +325,7 @@ Deno.serve(async (req) => {
     }
 
     const sig = await transferAudd(vault, escrow.receiver_wallet, amount);
+
 
     if (milestone) {
       await supabase.from("escrow_milestones")
