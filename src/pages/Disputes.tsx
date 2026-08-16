@@ -44,7 +44,7 @@ export default function Disputes() {
                         <p className="text-sm font-semibold">{d.ref}</p>
                         <p className="text-sm text-muted-foreground line-clamp-1">{d.reason}</p>
                         <p className="text-xs text-muted-foreground/70 mt-1">
-                          {Number(d.escrow?.amount_audd ?? 0).toLocaleString()} {d.escrow?.token_label ?? "AUDD"} ·
+                          {Number(d.escrow?.amount_audd ?? 0).toLocaleString()} {(d.escrow as any)?.token_label ?? "AUDD"} ·
                           {" "}updated {new Date(d.last_activity_at).toLocaleDateString()}
                         </p>
                       </div>
