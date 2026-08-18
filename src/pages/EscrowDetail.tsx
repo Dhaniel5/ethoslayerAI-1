@@ -105,10 +105,10 @@ export default function EscrowDetail() {
   };
   const handleDispute = async () => {
     try {
-      await disputeEscrow(escrow.id, disputeReason || "No reason provided");
-      toast({ title: "Dispute raised", description: "Release is paused pending resolution." });
+      const disputeId = await openDispute(escrow.id, disputeReason || "No reason provided");
+      toast({ title: "Dispute opened", description: "Release is paused. Work it out in the dispute room." });
       setDisputeReason("");
-      load();
+      navigate(`/disputes/${disputeId}`);
     } catch (e: any) {
       toast({ title: "Dispute failed", description: e.message, variant: "destructive" });
     }
