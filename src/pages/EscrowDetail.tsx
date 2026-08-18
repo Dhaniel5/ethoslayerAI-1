@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  approveMilestone, disputeEscrow, getEscrow, releaseEscrow, releaseViaCustodialVault,
+  approveMilestone, getEscrow, releaseEscrow, releaseViaCustodialVault,
   type EscrowRow, type MilestoneRow, type EventRow, shortAddr,
 } from "@/lib/escrow";
 import { openDispute, getDisputeForEscrow } from "@/lib/disputes";
