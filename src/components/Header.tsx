@@ -18,6 +18,7 @@ import {
 const navLinks = [
   { to: "/analyze", label: "Analyze" },
   { to: "/settlement", label: "Settlement" },
+  { to: "/disputes", label: "Disputes" },
   { to: "/watchlist", label: "Watchlist" },
   { to: "/values", label: "Ethos" },
   { to: "/methodology", label: "Methodology" },

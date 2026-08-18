@@ -15,9 +15,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  approveMilestone, disputeEscrow, getEscrow, releaseEscrow, releaseViaCustodialVault,
+  approveMilestone, getEscrow, releaseEscrow, releaseViaCustodialVault,
   type EscrowRow, type MilestoneRow, type EventRow, shortAddr,
 } from "@/lib/escrow";
+import { openDispute, getDisputeForEscrow } from "@/lib/disputes";
 import { explorerTxUrl, ESCROW_VAULT_ADDRESS } from "@/lib/solanaConfig";
 import { StatusBadge, TrustBadge } from "@/components/escrow/StatusBadges";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +35,7 @@ export default function EscrowDetail() {
   const [loading, setLoading] = useState(true);
   const [disputeReason, setDisputeReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [disputeId, setDisputeId] = useState<string | null>(null);
 
   const isVaultConnected =
     connected && publicKey?.toBase58() === ESCROW_VAULT_ADDRESS;
@@ -44,6 +46,7 @@ export default function EscrowDetail() {
     try {
       const r = await getEscrow(id);
       setEscrow(r.escrow); setMilestones(r.milestones); setEvents(r.events);
+      try { setDisputeId((await getDisputeForEscrow(id))?.id ?? null); } catch { /* ignore */ }
     } finally { setLoading(false); }
   };
 
@@ -105,10 +108,10 @@ export default function EscrowDetail() {
   };
   const handleDispute = async () => {
     try {
-      await disputeEscrow(escrow.id, disputeReason || "No reason provided");
-      toast({ title: "Dispute raised", description: "Release is paused pending resolution." });
+      const disputeId = await openDispute(escrow.id, disputeReason || "No reason provided");
+      toast({ title: "Dispute opened", description: "Release is paused. Work it out in the dispute room." });
       setDisputeReason("");
-      load();
+      navigate(`/disputes/${disputeId}`);
     } catch (e: any) {
       toast({ title: "Dispute failed", description: e.message, variant: "destructive" });
     }
@@ -167,6 +170,11 @@ export default function EscrowDetail() {
                     </p>
                   )}
                   <div className="flex gap-2 flex-wrap">
+                    {disputeId && (
+                      <Button variant="outline" className="gap-1.5" onClick={() => navigate(`/disputes/${disputeId}`)}>
+                        <AlertTriangle className="h-4 w-4" /> View dispute
+                      </Button>
+                    )}
                     {isReleasable && escrow.condition_type === "approval" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -190,7 +198,7 @@ export default function EscrowDetail() {
                       </AlertDialog>
                     )}
 
-                    {isDisputable && (
+                    {isDisputable && !disputeId && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="outline" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10">
