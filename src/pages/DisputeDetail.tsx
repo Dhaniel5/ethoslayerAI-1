@@ -61,6 +61,8 @@ export default function DisputeDetail() {
   const pending = proposals.find((p) => p.status === "pending");
   const accepted = proposals.find((p) => p.status === "accepted");
   const canSettle = dispute.status === "resolved" && !dispute.resolution_tx;
+  const legacySoloDispute = !escrow?.payee_user_id;
+  const canRespondToPending = !!role && (legacySoloDispute || pending?.proposed_by_role !== role);
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -111,7 +113,7 @@ export default function DisputeDetail() {
                   seller receives <strong>{Number(pending.amount_seller).toLocaleString()} {token}</strong>.
                 </p>
                 {pending.note && <p className="text-sm text-muted-foreground">{pending.note}</p>}
-                {role && pending.proposed_by_role !== role && !closed && (
+                {canRespondToPending && !closed && (
                   <div className="flex gap-2">
                     <Button size="sm" disabled={busy}
                       onClick={() => act(() => respondToProposal(pending.id, "accept"), "Resolution accepted")}>
@@ -123,8 +125,13 @@ export default function DisputeDetail() {
                     </Button>
                   </div>
                 )}
-                {role && pending.proposed_by_role === role && (
+                {role && pending.proposed_by_role === role && !legacySoloDispute && (
                   <p className="text-xs text-muted-foreground">Waiting for the other party to respond.</p>
+                )}
+                {role && pending.proposed_by_role === role && legacySoloDispute && !closed && (
+                  <p className="text-xs text-muted-foreground">
+                    This escrow predates linked payee accounts. Review the amounts, then accept to confirm the resolution.
+                  </p>
                 )}
               </CardContent>
             </Card>

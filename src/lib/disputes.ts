@@ -217,7 +217,19 @@ export async function settleDispute(disputeId: string, escrowId: string): Promis
   const { data, error } = await supabase.functions.invoke("release-escrow", {
     body: { escrow_id: escrowId, dispute_id: disputeId },
   });
-  if (error) throw new Error(error.message || "Settlement failed");
+  if (error) {
+    let message = error.message || "Settlement failed";
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      try {
+        const body = await context.clone().json() as { error?: string };
+        if (body.error) message = body.error;
+      } catch {
+        // Keep the transport error when the function did not return JSON.
+      }
+    }
+    throw new Error(message);
+  }
   if ((data as any)?.error) throw new Error((data as any).error);
   return (data as any)?.signature ?? null;
 }

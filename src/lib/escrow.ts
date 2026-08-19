@@ -11,6 +11,7 @@ export type EscrowStatus =
   | "in_review"
   | "released"
   | "disputed"
+  | "escalated"
   | "expired"
   | "cancelled";
 
@@ -31,6 +32,9 @@ export interface EscrowRow {
   disputed_at: string | null;
   created_at: string;
   updated_at: string;
+  payee_user_id: string | null;
+  payee_wallet: string | null;
+  pre_dispute_status: EscrowStatus | null;
 }
 
 export interface MilestoneRow {
