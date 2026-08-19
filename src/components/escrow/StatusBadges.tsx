@@ -9,6 +9,7 @@ const statusMap: Record<EscrowStatus, { label: string; cls: string }> = {
   in_review: { label: "In Review", cls: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
   released: { label: "Released", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
   disputed: { label: "Disputed", cls: "bg-destructive/10 text-destructive border-destructive/30" },
+  escalated: { label: "Escalated", cls: "bg-destructive/10 text-destructive border-destructive/30" },
   expired: { label: "Expired", cls: "bg-muted text-muted-foreground border-border" },
   cancelled: { label: "Cancelled", cls: "bg-muted text-muted-foreground border-border" },
 };
