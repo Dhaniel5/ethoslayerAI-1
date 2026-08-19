@@ -216,10 +216,26 @@ async function transferAudd(vault: VaultKeypair, receiverBase58: string, amount:
   );
   const signature = await ed25519.sign(message, vault.secret.slice(0, 32));
   const tx = concatBytes(encodeLength(1), signature, message);
-  return await rpc<string>("sendTransaction", [
+  const signature = await rpc<string>("sendTransaction", [
     bytesToBase64(tx),
     { encoding: "base64", skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 3 },
   ]);
+  await confirmTransaction(signature);
+  return signature;
+}
+
+async function confirmTransaction(signature: string): Promise<void> {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const result = await rpc<{ value: Array<{ confirmationStatus?: string; err?: unknown } | null> }>(
+      "getSignatureStatuses",
+      [[signature], { searchTransactionHistory: true }],
+    );
+    const status = result.value[0];
+    if (status?.err) throw new Error(`Solana rejected transaction ${signature}: ${JSON.stringify(status.err)}`);
+    if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") return;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error(`Transaction ${signature} was sent but confirmation timed out. Check it before retrying.`);
 }
 
 Deno.serve(async (req) => {
@@ -229,19 +245,23 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing Authorization header");
 
-    const supabase = createClient(
+    const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
-    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    const { data: userRes, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userRes.user) throw new Error("Unauthorized");
 
     const { escrow_id, milestone_id, dispute_id } = await req.json();
     if (!escrow_id) throw new Error("escrow_id is required");
 
-    const { data: escrow, error: eErr } = await supabase
+    const { data: escrow, error: eErr } = await serviceClient
       .from("escrows").select("*").eq("id", escrow_id).maybeSingle();
     if (eErr || !escrow) throw new Error("Escrow not found");
     const isParty =
@@ -253,9 +273,9 @@ Deno.serve(async (req) => {
 
     // ---- Dispute settlement path (split / refund / release per accepted resolution) ----
     if (dispute_id) {
-      const { data: dispute } = await supabase
+      const { data: dispute, error: disputeError } = await serviceClient
         .from("disputes").select("*").eq("id", dispute_id).maybeSingle();
-      if (!dispute) throw new Error("Dispute not found");
+      if (disputeError || !dispute) throw new Error("Dispute not found");
       if (dispute.escrow_id !== escrow_id) throw new Error("Dispute/escrow mismatch");
       if (dispute.status !== "resolved") throw new Error("This dispute has no accepted resolution yet");
       if (dispute.resolution_tx) throw new Error("This resolution has already been settled");
@@ -263,41 +283,62 @@ Deno.serve(async (req) => {
       const res = dispute.resolution ?? {};
       const buyerAmount = Number(res.amount_buyer ?? 0);
       const sellerAmount = Number(res.amount_seller ?? 0);
-      const sigs: string[] = [];
+      if (!Number.isFinite(buyerAmount) || !Number.isFinite(sellerAmount) || buyerAmount < 0 || sellerAmount < 0) {
+        throw new Error("The accepted resolution contains invalid payout amounts");
+      }
+      if (Math.abs((buyerAmount + sellerAmount) - Number(escrow.amount_audd)) > 0.000001) {
+        throw new Error("The accepted resolution does not equal the escrow amount");
+      }
 
-      if (sellerAmount > 0) {
-        const s = await transferAudd(vault, escrow.receiver_wallet, sellerAmount);
-        sigs.push(s);
-        await supabase.from("escrow_events").insert({
-          escrow_id, event_type: "released", amount_audd: sellerAmount, tx_signature: s,
+      const sellerWallet = escrow.payee_wallet || escrow.receiver_wallet;
+      const sigs: string[] = [];
+      let sellerTx = typeof res.seller_tx === "string" ? res.seller_tx : null;
+      let buyerTx = typeof res.buyer_tx === "string" ? res.buyer_tx : null;
+
+      if (sellerAmount > 0 && !sellerTx) {
+        sellerTx = await transferAudd(vault, sellerWallet, sellerAmount);
+        await serviceClient.from("disputes").update({
+          resolution: { ...res, seller_tx: sellerTx }, last_activity_at: new Date().toISOString(),
+        }).eq("id", dispute_id).is("resolution_tx", null);
+        await serviceClient.from("escrow_events").insert({
+          escrow_id, event_type: "released", amount_audd: sellerAmount, tx_signature: sellerTx,
           note: `Dispute ${dispute.ref}: released to seller`,
         });
-        await supabase.from("dispute_events").insert({
+        await serviceClient.from("dispute_events").insert({
           dispute_id, event_type: "funds_released", actor_label: "system",
-          note: `${sellerAmount} AUDD to seller · ${s}`,
+          note: `${sellerAmount} AUDD to seller · ${sellerTx}`,
         });
       }
-      if (buyerAmount > 0) {
-        const s = await transferAudd(vault, escrow.payer_wallet, buyerAmount);
-        sigs.push(s);
-        await supabase.from("escrow_events").insert({
-          escrow_id, event_type: "released", amount_audd: buyerAmount, tx_signature: s,
+      if (sellerTx) sigs.push(sellerTx);
+
+      if (buyerAmount > 0 && !buyerTx) {
+        buyerTx = await transferAudd(vault, escrow.payer_wallet, buyerAmount);
+        await serviceClient.from("disputes").update({
+          resolution: { ...res, seller_tx: sellerTx, buyer_tx: buyerTx }, last_activity_at: new Date().toISOString(),
+        }).eq("id", dispute_id).is("resolution_tx", null);
+        await serviceClient.from("escrow_events").insert({
+          escrow_id, event_type: "released", amount_audd: buyerAmount, tx_signature: buyerTx,
           note: `Dispute ${dispute.ref}: refunded to buyer`,
         });
-        await supabase.from("dispute_events").insert({
+        await serviceClient.from("dispute_events").insert({
           dispute_id, event_type: "funds_refunded", actor_label: "system",
-          note: `${buyerAmount} AUDD to buyer · ${s}`,
+          note: `${buyerAmount} AUDD to buyer · ${buyerTx}`,
         });
       }
+      if (buyerTx) sigs.push(buyerTx);
 
       const settlementSig = sigs[0] ?? null;
-      await supabase.from("disputes")
-        .update({ resolution_tx: settlementSig, last_activity_at: new Date().toISOString() })
+      if (!settlementSig) throw new Error("The accepted resolution has no payout to execute");
+      const finalResolution = { ...res, seller_tx: sellerTx, buyer_tx: buyerTx };
+      const { error: resolutionUpdateError } = await serviceClient.from("disputes")
+        .update({ resolution: finalResolution, resolution_tx: settlementSig, last_activity_at: new Date().toISOString() })
         .eq("id", dispute_id).is("resolution_tx", null);
-      await supabase.from("escrows")
+      if (resolutionUpdateError) throw resolutionUpdateError;
+      const { error: escrowUpdateError } = await serviceClient.from("escrows")
         .update({ status: "released", released_at: new Date().toISOString() })
         .eq("id", escrow_id);
-      await supabase.from("dispute_messages").insert({
+      if (escrowUpdateError) throw escrowUpdateError;
+      await serviceClient.from("dispute_messages").insert({
         dispute_id, author_role: "system",
         body: "Settlement executed on-chain. The dispute is fully closed.",
       });
@@ -315,7 +356,7 @@ Deno.serve(async (req) => {
     let amount = Number(escrow.amount_audd);
     let milestone: any = null;
     if (milestone_id) {
-      const { data: m, error: mErr } = await supabase
+      const { data: m, error: mErr } = await serviceClient
         .from("escrow_milestones").select("*").eq("id", milestone_id).maybeSingle();
       if (mErr || !m) throw new Error("Milestone not found");
       if (m.escrow_id !== escrow_id) throw new Error("Milestone/escrow mismatch");
@@ -328,28 +369,28 @@ Deno.serve(async (req) => {
 
 
     if (milestone) {
-      await supabase.from("escrow_milestones")
+      await serviceClient.from("escrow_milestones")
         .update({ approved: true, approved_at: new Date().toISOString() })
         .eq("id", milestone.id);
-      await supabase.from("escrow_events").insert({
+      await serviceClient.from("escrow_events").insert({
         escrow_id, event_type: "milestone_approved",
         amount_audd: amount, tx_signature: sig, note: milestone.title,
       });
-      const { data: remaining } = await supabase
+      const { data: remaining } = await serviceClient
         .from("escrow_milestones").select("id").eq("escrow_id", escrow_id).eq("approved", false);
       if (!remaining || remaining.length === 0) {
-        await supabase.from("escrows")
+        await serviceClient.from("escrows")
           .update({ status: "released", released_at: new Date().toISOString() })
           .eq("id", escrow_id);
-        await supabase.from("escrow_events").insert({
+        await serviceClient.from("escrow_events").insert({
           escrow_id, event_type: "released", note: "All milestones approved",
         });
       }
     } else {
-      await supabase.from("escrows")
+      await serviceClient.from("escrows")
         .update({ status: "released", released_at: new Date().toISOString() })
         .eq("id", escrow_id);
-      await supabase.from("escrow_events").insert({
+      await serviceClient.from("escrow_events").insert({
         escrow_id, event_type: "released", amount_audd: amount, tx_signature: sig,
         note: "Released by custodial vault",
       });
