@@ -53,33 +53,16 @@ function deeplinkTargetUrl() {
   return window.location.href;
 }
 
-/** Navigate the top-most window so the deeplink is not swallowed by an iframe. */
-function hardNavigate(url: string) {
-  try {
-    if (window.top && window.top !== window.self) {
-      window.top.location.href = url;
-      return;
-    }
-  } catch {
-    // cross-origin top — fall through
-  }
-  try {
-    window.location.href = url;
-  } catch {
-    window.open(url, "_blank");
-  }
+function phantomDeeplink() {
+  const target = encodeURIComponent(deeplinkTargetUrl());
+  const ref = encodeURIComponent(new URL(deeplinkTargetUrl()).origin);
+  return `https://phantom.app/ul/browse/${target}?ref=${ref}`;
 }
 
-function openInPhantom() {
+function solflareDeeplink() {
   const target = encodeURIComponent(deeplinkTargetUrl());
-  const ref = encodeURIComponent(PUBLIC_APP_ORIGIN);
-  hardNavigate(`https://phantom.app/ul/browse/${target}?ref=${ref}`);
-}
-
-function openInSolflare() {
-  const target = encodeURIComponent(deeplinkTargetUrl());
-  const ref = encodeURIComponent(PUBLIC_APP_ORIGIN);
-  hardNavigate(`https://solflare.com/ul/v1/browse/${target}?ref=${ref}`);
+  const ref = encodeURIComponent(new URL(deeplinkTargetUrl()).origin);
+  return `https://solflare.com/ul/v1/browse/${target}?ref=${ref}`;
 }
 
 interface Props {
@@ -168,21 +151,11 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
   };
 
   const handlePhantomConnect = () => {
-    // A normal mobile browser cannot see an installed wallet app as an injected
-    // provider. Open EthosLayer inside Phantom, where the provider is available.
-    if (isMobile && !getPhantomProvider()) {
-      openInPhantom();
-      return;
-    }
     if (connectNamed("Phantom")) return;
     setVisible(true);
   };
 
   const handleSolflareConnect = () => {
-    if (isMobile && !getSolflareProvider()) {
-      openInSolflare();
-      return;
-    }
     if (connectNamed("Solflare")) return;
     setVisible(true);
   };
@@ -201,16 +174,34 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
           <DropdownMenuLabel className="text-xs text-muted-foreground">
             Choose a wallet
           </DropdownMenuLabel>
-          <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={handlePhantomConnect}>
-            <Wallet className="h-3.5 w-3.5" />
-            <span className="flex-1">Phantom</span>
-            {isMobile && !injected.phantom && <ExternalLink className="h-3.5 w-3.5" />}
-          </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={handleSolflareConnect}>
-            <Wallet className="h-3.5 w-3.5" />
-            <span className="flex-1">Solflare</span>
-            {isMobile && !injected.solflare && <ExternalLink className="h-3.5 w-3.5" />}
-          </DropdownMenuItem>
+          {isMobile && !injected.phantom ? (
+            <DropdownMenuItem asChild className="gap-2 cursor-pointer">
+              <a href={phantomDeeplink()} target="_top">
+                <Wallet className="h-3.5 w-3.5" />
+                <span className="flex-1">Phantom</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={handlePhantomConnect}>
+              <Wallet className="h-3.5 w-3.5" />
+              <span className="flex-1">Phantom</span>
+            </DropdownMenuItem>
+          )}
+          {isMobile && !injected.solflare ? (
+            <DropdownMenuItem asChild className="gap-2 cursor-pointer">
+              <a href={solflareDeeplink()} target="_top">
+                <Wallet className="h-3.5 w-3.5" />
+                <span className="flex-1">Solflare</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={handleSolflareConnect}>
+              <Wallet className="h-3.5 w-3.5" />
+              <span className="flex-1">Solflare</span>
+            </DropdownMenuItem>
+          )}
           {mobileWalletAdapter && (
             <DropdownMenuItem
               className="gap-2 cursor-pointer"
