@@ -77,6 +77,18 @@ const Header = () => {
                 </DropdownMenuItem>
               ))}
 
+              <DropdownMenuItem asChild>
+                <a
+                  href="/EthosLayer_Whitepaper.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Read Whitepaper
+                </a>
+              </DropdownMenuItem>
+
               <DropdownMenuSeparator />
 
               {user ? (
