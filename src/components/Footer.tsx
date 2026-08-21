@@ -19,6 +19,16 @@ const Footer = () => {
             EthosLayer provides transparency insights, not financial advice. 
             Always conduct your own research before participating in any Web3 project.
           </p>
+
+          <a
+            href="/EthosLayer_Whitepaper.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Read Whitepaper
+          </a>
         </div>
       </div>
     </footer>
