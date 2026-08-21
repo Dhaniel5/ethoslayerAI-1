@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, Menu, User as UserIcon, ShieldCheck } from "lucide-react";
+import { FileText, LogIn, LogOut, Menu, User as UserIcon, ShieldCheck } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -76,6 +76,18 @@ const Header = () => {
                   {l.label}
                 </DropdownMenuItem>
               ))}
+
+              <DropdownMenuItem asChild>
+                <a
+                  href="/EthosLayer_Whitepaper.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Read Whitepaper
+                </a>
+              </DropdownMenuItem>
 
               <DropdownMenuSeparator />
 
