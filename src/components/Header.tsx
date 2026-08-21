@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, Menu, User as UserIcon, ShieldCheck } from "lucide-react";
+import { FileText, LogIn, LogOut, Menu, User as UserIcon, ShieldCheck } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
