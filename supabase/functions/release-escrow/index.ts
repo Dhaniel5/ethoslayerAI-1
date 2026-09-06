@@ -214,8 +214,8 @@ async function transferAudd(vault: VaultKeypair, receiverBase58: string, amount:
     encodeLength(instructions.length),
     ...instructions,
   );
-  const signature = await ed25519.sign(message, vault.secret.slice(0, 32));
-  const tx = concatBytes(encodeLength(1), signature, message);
+  const sigBytes = await ed25519.sign(message, vault.secret.slice(0, 32));
+  const tx = concatBytes(encodeLength(1), sigBytes, message);
   const signature = await rpc<string>("sendTransaction", [
     bytesToBase64(tx),
     { encoding: "base64", skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 3 },
