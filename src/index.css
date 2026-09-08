@@ -68,7 +68,20 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', sans-serif;
   }
+
+  /* Safe areas (iOS notch / home indicator) + room for the mobile tab bar.
+     Applies only to small screens, so desktop layout is untouched. */
+  @media (max-width: 767px) {
+    body {
+      padding-bottom: calc(3.75rem + env(safe-area-inset-bottom));
+    }
+
+    header.fixed {
+      padding-top: env(safe-area-inset-top);
+    }
+  }
 }
+
 
 @layer utilities {
   .glass-card {

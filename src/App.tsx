@@ -20,6 +20,8 @@ import PublicEscrowView from "./pages/PublicEscrowView";
 import Disputes from "./pages/Disputes";
 import DisputeDetail from "./pages/DisputeDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
+import MobileTabBar from "./components/MobileTabBar";
+import NativeBootstrap from "./components/NativeBootstrap";
 import SolanaWalletProvider from "./providers/SolanaWalletProvider";
 
 const queryClient = new QueryClient();
@@ -31,6 +33,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <NativeBootstrap />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/analyze" element={<ProtectedRoute><Analyze /></ProtectedRoute>} />
@@ -49,6 +52,7 @@ const App = () => (
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <MobileTabBar />
         </BrowserRouter>
       </TooltipProvider>
     </SolanaWalletProvider>
