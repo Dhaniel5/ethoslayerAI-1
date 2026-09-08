@@ -11,7 +11,12 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "audd:devnet": "node scripts/create-devnet-audd.mjs"
+    "audd:devnet": "node scripts/create-devnet-audd.mjs",
+    "cap:sync": "vite build && cap sync",
+    "cap:add:ios": "cap add ios",
+    "cap:add:android": "cap add android",
+    "cap:open:ios": "cap open ios",
+    "cap:open:android": "cap open android"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",
