@@ -112,7 +112,8 @@ async function loadBiometric(): Promise<BiometricModule | null> {
   try {
     // Optional plugin: install with `npm i capacitor-native-biometric` before
     // building natively. Absent on web, so this import stays dynamic.
-    return (await import(/* @vite-ignore */ "capacitor-native-biometric")) as unknown as BiometricModule;
+    const specifier = "capacitor-native-biometric";
+    return (await import(/* @vite-ignore */ specifier)) as unknown as BiometricModule;
   } catch {
     return null;
   }
