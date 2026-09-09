@@ -4,11 +4,14 @@ const config: CapacitorConfig = {
   appId: "app.lovable.p53f285367b5f43f390625f2c04d540c4",
   appName: "EthosLayer",
   webDir: "dist",
-  // Hot-reload from the hosted preview while developing on a device.
-  // Remove or comment out the `server` block to bundle the local `dist` build.
+  // The installed app runs the bundled `dist` build — no remote URL.
+  // For live-reload during development only, run:
+  //   npx cap run ios --live-reload  (or android)
+  // Do NOT re-add a `server.url` pointing at the Lovable preview: an installed
+  // app would then just load a website and break offline/native behaviour.
   server: {
-    url: "https://53f28536-7b5f-43f3-9062-5f2c04d540c4.lovableproject.com?forceHideBadge=true",
-    cleartext: true,
+    androidScheme: "https",
+    iosScheme: "https",
   },
   plugins: {
     SplashScreen: {
