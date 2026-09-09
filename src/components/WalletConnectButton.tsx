@@ -51,7 +51,9 @@ function deeplinkTargetUrl() {
   const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   const isFramed = window.self !== window.top;
   const isPreviewHost = /lovableproject\.com|id-preview/.test(window.location.hostname);
-  if (isFramed || isPreviewHost) return `${PUBLIC_APP_ORIGIN}${path}`;
+  // Inside the installed app the location is capacitor://localhost, which a
+  // wallet's in-app browser cannot load — always hand over the public origin.
+  if (isNative() || isFramed || isPreviewHost) return `${PUBLIC_APP_ORIGIN}${path}`;
   return window.location.href;
 }
 
