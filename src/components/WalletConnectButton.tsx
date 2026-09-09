@@ -34,6 +34,7 @@ function getSolflareProvider() {
 
 function isMobileBrowser() {
   if (typeof navigator === "undefined") return false;
+  if (isNative()) return true;
   return (
     /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
