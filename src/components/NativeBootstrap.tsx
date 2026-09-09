@@ -16,7 +16,14 @@ const NativeBootstrap = () => {
 
     initNativeChrome();
 
-    registerPushNotifications(undefined, (data) => {
+    registerPushNotifications(async (token) => {
+      try {
+        const { saveDeviceToken } = await import("@/lib/push");
+        await saveDeviceToken(token);
+      } catch {
+        /* not signed in yet — the profile screen can link it later */
+      }
+    }, (data) => {
       const path = typeof data?.path === "string" ? data.path : undefined;
       if (path) navigate(path);
       else if (typeof data?.escrow_id === "string") navigate(`/escrow/${data.escrow_id}`);
