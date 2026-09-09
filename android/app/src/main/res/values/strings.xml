@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EthosLayer</string>
+    <string name="title_activity_main">EthosLayer</string>
+    <string name="package_name">app.lovable.p53f285367b5f43f390625f2c04d540c4</string>
+    <string name="custom_url_scheme">app.lovable.p53f285367b5f43f390625f2c04d540c4</string>
+</resources>

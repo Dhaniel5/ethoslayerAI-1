@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { explorerAddrUrl } from "@/lib/solanaConfig";
 import { useToast } from "@/hooks/use-toast";
+import { isNative } from "@/lib/native";
 
 export function shortPubkey(pk: string) {
   return pk.length > 12 ? `${pk.slice(0, 4)}…${pk.slice(-4)}` : pk;
@@ -34,6 +35,7 @@ function getSolflareProvider() {
 
 function isMobileBrowser() {
   if (typeof navigator === "undefined") return false;
+  if (isNative()) return true;
   return (
     /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
@@ -49,7 +51,9 @@ function deeplinkTargetUrl() {
   const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   const isFramed = window.self !== window.top;
   const isPreviewHost = /lovableproject\.com|id-preview/.test(window.location.hostname);
-  if (isFramed || isPreviewHost) return `${PUBLIC_APP_ORIGIN}${path}`;
+  // Inside the installed app the location is capacitor://localhost, which a
+  // wallet's in-app browser cannot load — always hand over the public origin.
+  if (isNative() || isFramed || isPreviewHost) return `${PUBLIC_APP_ORIGIN}${path}`;
   return window.location.href;
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2, User as UserIcon, AlertCircle, CheckCircle2 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import MobileStatusCard from "@/components/MobileStatusCard";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile, saveUsername } from "@/hooks/useProfile";
@@ -109,6 +110,8 @@ export default function Profile() {
                   Save Profile
                 </Button>
               </form>
+
+              <MobileStatusCard />
             </>
           )}
         </div>
