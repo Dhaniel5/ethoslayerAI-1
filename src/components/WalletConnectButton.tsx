@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { explorerAddrUrl } from "@/lib/solanaConfig";
 import { useToast } from "@/hooks/use-toast";
+import { isNative } from "@/lib/native";
 
 export function shortPubkey(pk: string) {
   return pk.length > 12 ? `${pk.slice(0, 4)}…${pk.slice(-4)}` : pk;
