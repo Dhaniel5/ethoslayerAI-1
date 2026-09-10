@@ -37,7 +37,7 @@ const Index = () => {
 
       {/* Hero */}
       <main className="flex-1 pt-16">
-        <section className="container mx-auto px-6 py-24 md:py-36">
+        <section className="container mx-auto px-5 py-14 sm:px-6 sm:py-24 md:py-36">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -48,24 +48,24 @@ const Index = () => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="inline-flex items-center gap-2 glass-card px-4 py-1.5 mb-8 text-sm text-muted-foreground"
+              className="inline-flex items-center gap-2 glass-card px-3 py-1.5 mb-6 sm:px-4 sm:mb-8 text-xs sm:text-sm text-muted-foreground"
             >
               <span className="h-2 w-2 rounded-full bg-primary animate-pulse-glow" />
               Powered by on-chain analysis
             </motion.div>
 
-            <h1 className="font-display text-4xl md:text-6xl font-bold leading-tight mb-6">
+            <h1 className="font-display text-4xl md:text-6xl font-bold leading-tight mb-5 sm:mb-6">
               Your{" "}
               <span className="gradient-text">Ethical Intelligence</span>
               {" "}Layer for Web3
             </h1>
 
-            <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg text-muted-foreground mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed">
               Understand token integrity, governance health, and manipulation risk 
               before you participate. Not financial advice — transparency intelligence.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
               <Button
                 size="lg"
                 onClick={() => navigate("/analyze")}
@@ -88,7 +88,7 @@ const Index = () => {
         </section>
 
         {/* Features */}
-        <section className="container mx-auto px-6 pb-24">
+        <section className="container mx-auto px-5 sm:px-6 pb-16 sm:pb-24">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
             {features.map((feature, i) => (
               <motion.div

@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Wallet, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const tabs = [
   { to: "/", label: "Home", icon: Home },
@@ -29,18 +30,19 @@ const MobileTabBar = () => {
           const Icon = t.icon;
           return (
             <li key={t.to}>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => navigate(t.to)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "w-full flex flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors",
+                  "h-14 w-full rounded-none flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium transition-colors",
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
                 <Icon className="h-5 w-5" />
                 {t.label}
-              </button>
+              </Button>
             </li>
           );
         })}

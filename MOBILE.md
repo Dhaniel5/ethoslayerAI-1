@@ -13,9 +13,9 @@ The web app is unchanged. Native support is additive via Capacitor.
 
 After every `git pull`, run `npm run build && npx cap sync`.
 
-`capacitor.config.ts` points `server.url` at the Lovable preview for live reload.
-Remove that `server` block before building a release binary so the app ships the
-bundled `dist` build.
+`capacitor.config.ts` has no remote `server.url`. Installed builds always open
+the bundled EthosLayer app from `dist`, rather than a Lovable preview or browser
+authentication screen.
 
 ## Plugins installed
 

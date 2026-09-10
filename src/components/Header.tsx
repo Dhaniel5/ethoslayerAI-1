@@ -38,10 +38,10 @@ const Header = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-card border-t-0 border-x-0 rounded-none">
-      <div className="container mx-auto px-6 h-16 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center gap-3 min-w-0">
+      <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-3">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
           <img src={logo} alt="EthosLayer" className="h-8 w-8" />
-          <span className="font-display text-lg font-semibold tracking-tight">
+          <span className="hidden min-[390px]:inline font-display text-lg font-semibold tracking-tight">
             <span className="gradient-text">Ethos</span>
             <span className="text-foreground">Layer</span>
           </span>
@@ -50,7 +50,7 @@ const Header = () => {
           </span>
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {user && (
             <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[160px]">
               {profile?.username ? `@${profile.username}` : user.email}
