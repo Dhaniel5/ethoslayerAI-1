@@ -73,12 +73,31 @@
      Applies only to small screens, so desktop layout is untouched. */
   @media (max-width: 767px) {
     body {
-      padding-bottom: calc(3.75rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+      overscroll-behavior-y: none;
     }
 
     header.fixed {
       padding-top: env(safe-area-inset-top);
     }
+  }
+
+  html.native-app,
+  html.native-app body,
+  html.native-app #root {
+    min-height: 100%;
+    min-height: 100dvh;
+  }
+
+  html.native-app {
+    background: hsl(var(--background));
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  html.native-app input,
+  html.native-app textarea {
+    user-select: text;
   }
 }
 
