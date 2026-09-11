@@ -6,16 +6,21 @@ The web app is unchanged. Native support is additive via Capacitor.
 
 1. Export the project to GitHub and `git pull` it locally.
 2. `npm install`
-3. `npx cap add ios` and/or `npx cap add android`
-4. `npm run build`
-5. `npx cap sync`
-6. `npx cap run ios` (needs a Mac + Xcode) or `npx cap run android` (needs Android Studio)
+3. Do not open the Lovable preview URL in Chrome/Safari and treat its home-screen shortcut as the native app.
+4. `npx cap add ios` and/or `npx cap add android` (only if that platform folder is not already present)
+5. `npm run build`
+6. `npx cap sync`
+7. `npx cap run ios` (needs a Mac + Xcode) or `npx cap run android` (needs Android Studio)
 
 After every `git pull`, run `npm run build && npx cap sync`.
 
-`capacitor.config.ts` has no remote `server.url`. Installed builds always open
+`capacitor.config.ts` has no `server` configuration or remote URL. Installed builds always open
 the bundled EthosLayer app from `dist`, rather than a Lovable preview or browser
 authentication screen.
+
+If the phone displays a Chrome or Safari address bar, that is the website or a
+browser shortcut, not the native Capacitor app. Uninstall that shortcut and the
+old test app, then install the newly built app from Xcode or Android Studio.
 
 ## Plugins installed
 
