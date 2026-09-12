@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "REPLACE_WITH_TEAM_ID.app.lovable.p53f285367b5f43f390625f2c04d540c4",
+        "paths": ["/escrow/*"]
+      }
+    ]
+  }
+}
