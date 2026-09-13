@@ -140,6 +140,10 @@ export default function CreateEscrowDialog({ open, onOpenChange, onCreated }: Pr
         { connection, signer: { publicKey, signTransaction } },
       );
       toast({ title: "Escrow created", description: "AUDD locked on-chain in the vault." });
+      // Phone alert for both parties that the escrow is funded.
+      void supabase.functions.invoke("notify-escrow", {
+        body: { escrow_id: created.id, kind: "funded" },
+      });
       setCreatedId(created.id);
       reset();
       onCreated();
