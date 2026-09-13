@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import TokenAnalysisCard from "@/components/escrow/TokenAnalysisCard";
+import OpenInAppBanner from "@/components/escrow/OpenInAppBanner";
 import { StatusBadge, TrustBadge } from "@/components/escrow/StatusBadges";
 import { getPublicEscrow, payeeAcceptEscrow, payeeRequestAudd, maskAddr, type PublicEscrow } from "@/lib/escrow";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +76,7 @@ export default function PublicEscrowView() {
             </CardContent></Card>
           ) : (
             <div className="space-y-5">
+              {id && <OpenInAppBanner escrowId={id} />}
               <div className="glass-card p-5 space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   <ShieldCheck className="h-5 w-5 text-primary" />
