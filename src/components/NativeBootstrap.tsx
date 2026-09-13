@@ -35,7 +35,13 @@ const NativeBootstrap = () => {
         const handle = await App.addListener("appUrlOpen", ({ url }) => {
           try {
             const parsed = new URL(url);
-            const target = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+            // ethoslayer://escrow/<id> puts "escrow" in the host, https links
+            // from the website put the whole route in the pathname.
+            const isScheme = parsed.protocol === "ethoslayer:";
+            const path = isScheme
+              ? `/${parsed.host}${parsed.pathname}`.replace(/\/+$/, "")
+              : parsed.pathname;
+            const target = `${path}${parsed.search}${parsed.hash}`;
             if (target && target !== "/") navigate(target);
           } catch {
             /* malformed url */
