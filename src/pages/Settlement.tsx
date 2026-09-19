@@ -9,9 +9,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { listEscrows, shortAddr, type EscrowRow } from "@/lib/escrow";
 import { StatusBadge, TrustBadge } from "@/components/escrow/StatusBadges";
 import CreateEscrowDialog from "@/components/escrow/CreateEscrowDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileSettlementList from "@/components/mobile/MobileSettlementList";
 
 export default function Settlement() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [escrows, setEscrows] = useState<EscrowRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -21,7 +24,11 @@ export default function Settlement() {
     try { setEscrows(await listEscrows()); } finally { setLoading(false); }
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { if (!isMobile) refresh(); }, [isMobile]);
+
+  if (isMobile) {
+    return <MobileSettlementList />;
+  }
 
   const totals = {
     active: escrows.filter((e) => ["locked", "pending", "in_review"].includes(e.status)).length,

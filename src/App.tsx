@@ -19,6 +19,10 @@ import Profile from "./pages/Profile";
 import PublicEscrowView from "./pages/PublicEscrowView";
 import Disputes from "./pages/Disputes";
 import DisputeDetail from "./pages/DisputeDetail";
+import Notifications from "./pages/Notifications";
+import WalletConnect from "./pages/WalletConnect";
+import CreateEscrowFlow from "./pages/mobile/CreateEscrowFlow";
+import AnalysisHistory from "./pages/AnalysisHistory";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MobileTabBar from "./components/MobileTabBar";
 import NativeBootstrap from "./components/NativeBootstrap";
@@ -37,10 +41,12 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/analyze" element={<ProtectedRoute><Analyze /></ProtectedRoute>} />
+            <Route path="/analyze/history" element={<ProtectedRoute><AnalysisHistory /></ProtectedRoute>} />
             <Route path="/values" element={<ProtectedRoute><Values /></ProtectedRoute>} />
             <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
             <Route path="/methodology" element={<ProtectedRoute><Methodology /></ProtectedRoute>} />
             <Route path="/settlement" element={<ProtectedRoute><Settlement /></ProtectedRoute>} />
+            <Route path="/settlement/new" element={<ProtectedRoute><CreateEscrowFlow /></ProtectedRoute>} />
             <Route path="/settlement/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
             <Route path="/settlement/:id" element={<ProtectedRoute><EscrowDetail /></ProtectedRoute>} />
             <Route path="/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
@@ -50,6 +56,9 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/profile/edit" element={<ProtectedRoute><Profile forceForm /></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            <Route path="/wallet" element={<ProtectedRoute><WalletConnect /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <MobileTabBar />

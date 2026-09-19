@@ -22,6 +22,8 @@ import { openDispute, getDisputeForEscrow } from "@/lib/disputes";
 import { explorerTxUrl, ESCROW_VAULT_ADDRESS } from "@/lib/solanaConfig";
 import { StatusBadge, TrustBadge } from "@/components/escrow/StatusBadges";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileEscrowDetail from "@/components/mobile/MobileEscrowDetail";
 
 export default function EscrowDetail() {
   const { id } = useParams();
@@ -36,6 +38,8 @@ export default function EscrowDetail() {
   const [disputeReason, setDisputeReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [disputeId, setDisputeId] = useState<string | null>(null);
+  const [releasedTx, setReleasedTx] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const isVaultConnected =
     connected && publicKey?.toBase58() === ESCROW_VAULT_ADDRESS;
@@ -80,12 +84,11 @@ export default function EscrowDetail() {
     setActionLoading(true);
     try {
       const chain = requireVaultSigner();
-      if (chain) {
-        await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain);
-      } else {
-        await releaseViaCustodialVault(escrow.id);
-      }
+      const sig = chain
+        ? await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain)
+        : await releaseViaCustodialVault(escrow.id);
       toast({ title: "Funds released", description: "AUDD transferred on-chain to the receiver." });
+      setReleasedTx(sig);
       load();
     } catch (e: any) {
       toast({ title: "Release failed", description: e.message, variant: "destructive" });
@@ -119,6 +122,27 @@ export default function EscrowDetail() {
 
   const isReleasable = escrow.status === "locked" || escrow.status === "in_review";
   const isDisputable = ["locked", "in_review", "pending"].includes(escrow.status);
+
+  if (isMobile) {
+    return (
+      <MobileEscrowDetail
+        escrow={escrow}
+        milestones={milestones}
+        events={events}
+        disputeId={disputeId}
+        actionLoading={actionLoading}
+        releasedTx={releasedTx}
+        disputeReason={disputeReason}
+        setDisputeReason={setDisputeReason}
+        isReleasable={isReleasable}
+        isDisputable={isDisputable}
+        onRelease={handleRelease}
+        onApproveMilestone={handleApproveMilestone}
+        onDispute={handleDispute}
+        onDismissReleaseScreen={() => setReleasedTx(null)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

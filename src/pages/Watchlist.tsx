@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Bookmark, ArrowUp, ArrowDown, Minus, Trash2, AlertTriangle, Search } from "lucide-react";
+import { Bookmark, ArrowUp, ArrowDown, Minus, Trash2, AlertTriangle, Search, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getWatchlist, removeFromWatchlist, type WatchlistEntry } from "@/lib/watchlist";
 import { getScoreColor } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Watchlist = () => {
   const [entries, setEntries] = useState<WatchlistEntry[]>([]);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     getWatchlist().then(setEntries);
@@ -28,19 +30,29 @@ const Watchlist = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 pt-24 pb-16">
-        <div className="container mx-auto px-6 max-w-3xl">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="flex items-center gap-3 mb-2">
-              <Bookmark className="h-6 w-6 text-primary" />
-              <h1 className="font-display text-2xl font-bold">Watchlist</h1>
+    <div className={cn("min-h-screen flex flex-col bg-background", isMobile && "pb-6")}>
+      {!isMobile && <Header />}
+      <main className={cn("flex-1", isMobile ? "" : "pt-24 pb-16")}>
+        <div className={isMobile ? "px-5 pt-6" : "container mx-auto px-6 max-w-3xl"}>
+          {isMobile ? (
+            <div className="flex items-center gap-3 mb-5">
+              <button type="button" onClick={() => navigate(-1)} aria-label="Back"
+                className="h-9 w-9 rounded-full glass-card flex items-center justify-center text-foreground/80">
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <h1 className="font-display text-lg font-bold text-foreground">Watchlist</h1>
             </div>
-            <p className="text-sm text-muted-foreground mb-8">
-              Track tokens you care about. Scores update each time you re-analyze.
-            </p>
-          </motion.div>
+          ) : (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="flex items-center gap-3 mb-2">
+                <Bookmark className="h-6 w-6 text-primary" />
+                <h1 className="font-display text-2xl font-bold">Watchlist</h1>
+              </div>
+              <p className="text-sm text-muted-foreground mb-8">
+                Track tokens you care about. Scores update each time you re-analyze.
+              </p>
+            </motion.div>
+          )}
 
           {entries.length === 0 ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-10 text-center">
@@ -125,7 +137,7 @@ const Watchlist = () => {
           )}
         </div>
       </main>
-      <Footer />
+      {!isMobile && <Footer />}
     </div>
   );
 };

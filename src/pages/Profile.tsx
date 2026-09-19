@@ -7,11 +7,20 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile, saveUsername } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileSettings from "@/components/mobile/MobileSettings";
 
-export default function Profile() {
-  const { user } = useAuth();
+interface Props {
+  /** Skip the mobile settings-menu view and go straight to the edit form (used by /profile/edit). */
+  forceForm?: boolean;
+}
+
+export default function Profile({ forceForm }: Props) {
+  const { user, loading: authLoading } = useAuth();
   const { profile, loading, refresh } = useProfile();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -21,6 +30,10 @@ export default function Profile() {
     setUsername(profile?.username ?? "");
     setDisplayName(profile?.display_name ?? "");
   }, [profile]);
+
+  if (!forceForm && !authLoading && user && isMobile) {
+    return <MobileSettings />;
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -4,6 +4,10 @@ import { Search, Play, Shield, Eye, Users, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileHome from "@/components/mobile/MobileHome";
+import MobileSplash from "@/components/mobile/MobileSplash";
 
 const features = [
   {
@@ -30,6 +34,14 @@ const features = [
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
+  const isMobile = useIsMobile();
+
+  // Signed-in users on a phone get the native-style dashboard (mockup screen 2).
+  // Desktop and signed-out visitors keep the existing marketing page.
+  if (!loading && isMobile) {
+    return user ? <MobileHome /> : <MobileSplash />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col animated-gradient-bg">

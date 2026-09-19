@@ -4,50 +4,50 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 92%;
+    --background: 231 42% 6%;
+    --foreground: 220 35% 94%;
 
-    --card: 222 41% 10%;
-    --card-foreground: 210 40% 92%;
+    --card: 231 34% 10%;
+    --card-foreground: 220 35% 94%;
 
-    --popover: 222 41% 10%;
-    --popover-foreground: 210 40% 92%;
+    --popover: 231 34% 10%;
+    --popover-foreground: 220 35% 94%;
 
-    --primary: 192 100% 50%;
-    --primary-foreground: 222 47% 6%;
+    --primary: 243 75% 63%;
+    --primary-foreground: 220 35% 98%;
 
-    --secondary: 260 70% 58%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 258 72% 60%;
+    --secondary-foreground: 220 35% 98%;
 
-    --muted: 222 30% 16%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 231 26% 16%;
+    --muted-foreground: 220 15% 60%;
 
-    --accent: 192 80% 40%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 243 65% 55%;
+    --accent-foreground: 220 35% 98%;
 
     --destructive: 0 72% 55%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 220 35% 98%;
 
-    --border: 222 30% 18%;
-    --input: 222 30% 18%;
-    --ring: 192 100% 50%;
+    --border: 231 25% 19%;
+    --input: 231 25% 19%;
+    --ring: 243 75% 63%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    --sidebar-background: 222 41% 8%;
-    --sidebar-foreground: 210 40% 92%;
-    --sidebar-primary: 192 100% 50%;
-    --sidebar-primary-foreground: 222 47% 6%;
-    --sidebar-accent: 222 30% 16%;
-    --sidebar-accent-foreground: 210 40% 92%;
-    --sidebar-border: 222 30% 18%;
-    --sidebar-ring: 192 100% 50%;
+    --sidebar-background: 231 34% 8%;
+    --sidebar-foreground: 220 35% 94%;
+    --sidebar-primary: 243 75% 63%;
+    --sidebar-primary-foreground: 220 35% 98%;
+    --sidebar-accent: 231 26% 16%;
+    --sidebar-accent-foreground: 220 35% 94%;
+    --sidebar-border: 231 25% 19%;
+    --sidebar-ring: 243 75% 63%;
 
     /* Custom tokens */
-    --glow-primary: 192 100% 50%;
-    --glow-secondary: 260 70% 58%;
-    --surface-glass: 222 41% 10%;
-    --score-healthy: 152 70% 50%;
+    --glow-primary: 243 75% 63%;
+    --glow-secondary: 258 72% 60%;
+    --surface-glass: 231 34% 10%;
+    --score-healthy: 152 65% 48%;
     --score-moderate: 45 90% 55%;
     --score-danger: 0 72% 55%;
   }
@@ -129,10 +129,10 @@
 
   .animated-gradient-bg {
     background: linear-gradient(-45deg, 
-      hsl(222 47% 6%), 
-      hsl(222 41% 10%), 
-      hsl(260 30% 12%), 
-      hsl(222 47% 6%));
+      hsl(231 42% 6%), 
+      hsl(231 34% 10%), 
+      hsl(250 38% 13%), 
+      hsl(231 42% 6%));
     background-size: 400% 400%;
     animation: gradientShift 15s ease infinite;
   }

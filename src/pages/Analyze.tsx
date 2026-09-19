@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Loader2, Bookmark, BookmarkCheck } from "lucide-react";
+import { Search, Loader2, Bookmark, BookmarkCheck, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -19,15 +19,19 @@ import { getIntegrityBreakdown, getGovernanceBreakdown, getManipulationBreakdown
 import { saveToWatchlist, isInWatchlist } from "@/lib/watchlist";
 import { recordAnalysis } from "@/lib/analysisHistory";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 const AnalyzePage = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [mintAddress, setMintAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<TokenAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const mint = searchParams.get("mint");
@@ -78,27 +82,46 @@ const AnalyzePage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
+    <div className={cn("min-h-screen flex flex-col bg-background", isMobile && "pb-6")}>
+      {!isMobile && <Header />}
       <EthosOnboardingModal onComplete={() => {}} />
 
-      <main className="flex-1 pt-24 pb-16">
-        <div className="container mx-auto px-6 max-w-4xl">
+      <main className={cn("flex-1", isMobile ? "" : "pt-24 pb-16")}>
+        <div className={isMobile ? "px-5 pt-6" : "container mx-auto px-6 max-w-4xl"}>
           {/* Search */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
-            <h1 className="font-display text-2xl font-bold mb-2">Token Integrity Scan</h1>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={isMobile ? "mb-8" : "mb-12"}>
+            {isMobile ? (
+              <div className="flex items-center justify-between mb-2">
+                <h1 className="font-display font-bold text-lg">AI Trust Scan</h1>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => navigate("/analyze/history")} aria-label="Analysis history"
+                    className="h-9 w-9 rounded-full glass-card flex items-center justify-center text-foreground/80">
+                    <History className="h-4 w-4" />
+                  </button>
+                  <button type="button" onClick={() => navigate("/watchlist")} aria-label="Watchlist"
+                    className="h-9 w-9 rounded-full glass-card flex items-center justify-center text-foreground/80">
+                    <Bookmark className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <h1 className="font-display text-2xl font-bold mb-2">Token Integrity Scan</h1>
+            )}
             <p className="text-sm text-muted-foreground mb-6">
               Enter a Solana token mint address to analyze its ethical profile.
             </p>
-            <div className="flex gap-3">
+            <div className={isMobile ? "glass-card p-3 space-y-2.5" : "flex gap-3"}>
               <input
                 placeholder="Enter Solana Token Mint Address"
                 value={mintAddress}
                 onChange={(e) => setMintAddress(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={cn(
+                  "flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  !isMobile && "flex-1",
+                )}
                 onKeyDown={(e) => e.key === "Enter" && runAnalysis()}
               />
-              <Button onClick={() => runAnalysis()} disabled={loading || !mintAddress.trim()} className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2 shrink-0">
+              <Button onClick={() => runAnalysis()} disabled={loading || !mintAddress.trim()} className={cn("bg-primary text-primary-foreground hover:bg-primary/90 gap-2 shrink-0", isMobile && "w-full")}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 Analyze
               </Button>
@@ -191,7 +214,7 @@ const AnalyzePage = () => {
         </div>
       </main>
 
-      <Footer />
+      {!isMobile && <Footer />}
     </div>
   );
 };
