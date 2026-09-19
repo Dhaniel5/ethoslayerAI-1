@@ -17,11 +17,14 @@ import {
 } from "@/lib/disputes";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 export default function DisputeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<DisputeBundle | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,8 +47,8 @@ export default function DisputeDetail() {
   if (!data?.dispute) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        <Header />
-        <main className="flex-1 pt-24 container mx-auto px-6 max-w-3xl">
+        {!isMobile && <Header />}
+        <main className={cn("flex-1", isMobile ? "px-5 pt-6" : "pt-24 container mx-auto px-6 max-w-3xl")}>
           <p>Dispute not found.</p>
           <Button className="mt-4" onClick={() => navigate("/disputes")}>Back to disputes</Button>
         </main>
@@ -72,13 +75,22 @@ export default function DisputeDetail() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 pt-24 pb-16">
-        <div className="container mx-auto px-6 max-w-4xl space-y-5">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/disputes")} className="gap-1.5">
-            <ArrowLeft className="h-4 w-4" /> Back
-          </Button>
+    <div className={cn("min-h-screen flex flex-col bg-background", isMobile && "pb-6")}>
+      {!isMobile && <Header />}
+      <main className={cn("flex-1", isMobile ? "" : "pt-24 pb-16")}>
+        <div className={cn(isMobile ? "px-5 pt-6" : "container mx-auto px-6 max-w-4xl", "space-y-5")}>
+          <div className="flex items-center gap-3">
+            {isMobile ? (
+              <button type="button" onClick={() => navigate("/disputes")} aria-label="Back"
+                className="h-9 w-9 rounded-full glass-card flex items-center justify-center text-foreground/80">
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => navigate("/disputes")} className="gap-1.5">
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+            )}
+          </div>
 
           <Card className="glass-card">
             <CardContent className="p-6 space-y-3">
@@ -224,7 +236,7 @@ export default function DisputeDetail() {
           </Card>
         </div>
       </main>
-      <Footer />
+      {!isMobile && <Footer />}
 
       <ProposeResolutionDialog
         open={proposeOpen} onOpenChange={setProposeOpen}

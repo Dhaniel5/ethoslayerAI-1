@@ -1,13 +1,14 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Wallet, Search, User } from "lucide-react";
+import { Home, Wallet, Sparkles, Menu, FileStack } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const tabs = [
   { to: "/", label: "Home", icon: Home },
-  { to: "/settlement", label: "Escrow", icon: Wallet },
-  { to: "/analyze", label: "Analyze", icon: Search },
-  { to: "/profile", label: "Profile", icon: User },
+  { to: "/settlement", label: "Agreements", icon: FileStack },
+  { to: "/analyze", label: "AI", icon: Sparkles },
+  { to: "/wallet", label: "Wallet", icon: Wallet },
+  { to: "/profile", label: "More", icon: Menu },
 ];
 
 /**
@@ -23,7 +24,7 @@ const MobileTabBar = () => {
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-card border-b-0 border-x-0 rounded-none pb-[env(safe-area-inset-bottom)]"
       aria-label="Primary"
     >
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {tabs.map((t) => {
           const active =
             t.to === "/" ? location.pathname === "/" : location.pathname.startsWith(t.to);

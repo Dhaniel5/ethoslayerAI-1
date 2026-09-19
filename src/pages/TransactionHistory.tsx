@@ -11,15 +11,23 @@ import {
 import { listAllEvents, shortAddr, type EscrowRow, type EventRow } from "@/lib/escrow";
 import { explorerTxUrl } from "@/lib/solanaConfig";
 import { StatusBadge } from "@/components/escrow/StatusBadges";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileTransactionHistory from "@/components/mobile/MobileTransactionHistory";
 
 export default function TransactionHistory() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [rows, setRows] = useState<(EventRow & { escrow: EscrowRow })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isMobile) return;
     listAllEvents().then((r) => { setRows(r); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
+  }, [isMobile]);
+
+  if (isMobile) {
+    return <MobileTransactionHistory />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

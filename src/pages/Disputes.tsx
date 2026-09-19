@@ -7,14 +7,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DisputeStatusBadge } from "@/components/dispute/DisputeStatusBadge";
 import { listDisputes, type DisputeRow } from "@/lib/disputes";
 import type { EscrowRow } from "@/lib/escrow";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileDisputesList from "@/components/mobile/MobileDisputesList";
 
 export default function Disputes() {
+  const isMobile = useIsMobile();
   const [rows, setRows] = useState<(DisputeRow & { escrow: EscrowRow })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isMobile) { setLoading(false); return; }
     listDisputes().then(setRows).catch(() => setRows([])).finally(() => setLoading(false));
-  }, []);
+  }, [isMobile]);
+
+  if (isMobile) {
+    return <MobileDisputesList />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
