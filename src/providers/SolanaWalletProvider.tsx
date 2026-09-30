@@ -10,6 +10,8 @@ import {
 } from "@solana-mobile/wallet-adapter-mobile";
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import { SOLANA_CLUSTER, SOLANA_RPC_URL } from "@/lib/solanaConfig";
+import { createPhantomDeeplinkAdapter, createSolflareDeeplinkAdapter, PUBLIC_APP_URL } from "@/lib/deeplinkWallet";
+import { isNative } from "@/lib/native";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 export default function SolanaWalletProvider({ children }: { children: ReactNode }) {
@@ -20,9 +22,18 @@ export default function SolanaWalletProvider({ children }: { children: ReactNode
       ? WalletAdapterNetwork.Devnet
       : WalletAdapterNetwork.Testnet;
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+  const cluster = SOLANA_CLUSTER === "mainnet-beta" ? "mainnet-beta" : SOLANA_CLUSTER === "devnet" ? "devnet" : "testnet";
 
-  const wallets = useMemo(
-    () => [
+  const wallets = useMemo(() => {
+    // Inside our own native Capacitor shell, neither the browser-extension
+    // adapters (no injected provider here) nor Mobile Wallet Adapter (its JS
+    // transport refuses to run outside a real mobile browser) can actually
+    // reach a wallet. Phantom/Solflare's own app-to-app deeplink Connect
+    // protocol is the one path that does — see src/lib/deeplinkWallet.ts.
+    if (isNative()) {
+      return [createPhantomDeeplinkAdapter(cluster), createSolflareDeeplinkAdapter(cluster)];
+    }
+    return [
       // Keep the legacy adapter registered as a reliable mobile fallback. Inside
       // Phantom it is automatically replaced by Phantom's Wallet Standard adapter.
       new PhantomWalletAdapter(),
@@ -35,7 +46,7 @@ export default function SolanaWalletProvider({ children }: { children: ReactNode
               },
               appIdentity: {
                 name: "EthosLayer",
-                uri: typeof window !== "undefined" ? window.location.origin : "https://ethoslayer.lovable.app",
+                uri: typeof window !== "undefined" ? window.location.origin : PUBLIC_APP_URL,
                 icon: "/favicon.ico",
               },
               authorizationResultCache: createDefaultAuthorizationResultCache(),
@@ -44,9 +55,8 @@ export default function SolanaWalletProvider({ children }: { children: ReactNode
             }),
           ]
         : []),
-    ],
-    [network, isAndroid],
-  );
+    ];
+  }, [network, isAndroid, cluster]);
 
   return (
     <ConnectionProvider endpoint={SOLANA_RPC_URL}>

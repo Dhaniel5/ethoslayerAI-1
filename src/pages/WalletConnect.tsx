@@ -58,19 +58,6 @@ export default function WalletConnect() {
     setPendingWallet(walletName);
   };
 
-  // Phantom/Solflare's own adapters only work where those wallets inject a
-  // provider (their browser extension, or their own in-app browser) —
-  // neither exists inside our native Capacitor WebView. There, Mobile
-  // Wallet Adapter is the only path that actually reaches an installed
-  // wallet app, so route the branded buttons through it when native.
-  const handleOptionTap = (name: string) => {
-    if (isNative() && mobileWalletAdapter) {
-      connectNamed(mobileWalletAdapter.adapter.name);
-      return;
-    }
-    connectNamed(name);
-  };
-
   const options = [
     { name: "Phantom", sub: "Most popular Solana wallet", available: Boolean(findWallet("Phantom")) || isMobileBrowser() },
     { name: "Solflare", sub: "Advanced features", available: Boolean(findWallet("Solflare")) || isMobileBrowser() },
@@ -135,7 +122,7 @@ export default function WalletConnect() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
             disabled={connecting}
-            onClick={() => handleOptionTap(o.name)}
+            onClick={() => connectNamed(o.name)}
             className="w-full glass-card p-4 flex items-center gap-3 text-left active:scale-[0.98] transition-transform disabled:opacity-60"
           >
             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">

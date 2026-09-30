@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { initNativeChrome, isNative, registerPushNotifications } from "@/lib/native";
+import { isWalletCallbackUrl } from "@/lib/deeplinkWallet";
 
 /**
  * Push notifications require a Firebase project wired up on Android
@@ -48,6 +49,7 @@ const NativeBootstrap = () => {
       try {
         const { App } = await import("@capacitor/app");
         const handle = await App.addListener("appUrlOpen", ({ url }) => {
+          if (isWalletCallbackUrl(url)) return; // handled by the wallet adapter's own listener
           try {
             const parsed = new URL(url);
             // ethoslayer://escrow/<id> puts "escrow" in the host, https links
