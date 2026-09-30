@@ -11,12 +11,13 @@ import {
 import { explorerAddrUrl } from "@/lib/solanaConfig";
 import { useToast } from "@/hooks/use-toast";
 import { isNative } from "@/lib/native";
+import { PUBLIC_APP_URL } from "@/lib/deeplinkWallet";
 
 export function shortPubkey(pk: string) {
   return pk.length > 12 ? `${pk.slice(0, 4)}…${pk.slice(-4)}` : pk;
 }
 
-const PUBLIC_APP_ORIGIN = "https://ethoslayer.lovable.app";
+const PUBLIC_APP_ORIGIN = PUBLIC_APP_URL;
 
 function getPhantomProvider() {
   if (typeof window === "undefined") return null;
@@ -178,7 +179,7 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
           <DropdownMenuLabel className="text-xs text-muted-foreground">
             Choose a wallet
           </DropdownMenuLabel>
-          {isMobile && !injected.phantom ? (
+          {isMobile && !isNative() && !injected.phantom ? (
             <DropdownMenuItem asChild className="gap-2 cursor-pointer">
               <a href={phantomDeeplink()} target="_top">
                 <Wallet className="h-3.5 w-3.5" />
@@ -192,7 +193,7 @@ export default function WalletConnectButton({ size = "sm", variant = "outline" }
               <span className="flex-1">Phantom</span>
             </DropdownMenuItem>
           )}
-          {isMobile && !injected.solflare ? (
+          {isMobile && !isNative() && !injected.solflare ? (
             <DropdownMenuItem asChild className="gap-2 cursor-pointer">
               <a href={solflareDeeplink()} target="_top">
                 <Wallet className="h-3.5 w-3.5" />
