@@ -16,6 +16,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   approveMilestone, getEscrow, releaseEscrow, releaseViaCustodialVault,
+  refundEscrow, raiseDisputeOnChain,
   type EscrowRow, type MilestoneRow, type EventRow, shortAddr,
 } from "@/lib/escrow";
 import { openDispute, getDisputeForEscrow } from "@/lib/disputes";
@@ -79,19 +80,47 @@ export default function EscrowDetail() {
     if (!isVaultConnected || !publicKey || !signTransaction) return null;
     return { connection, signer: { publicKey, signTransaction } };
   };
+  // For a real on-chain escrow, the program decides who's authorized to
+  // release/refund/dispute (buyer, seller, or the arbiter) — there's no
+  // special "vault wallet" to require here, unlike the old custodial path.
+  const requireAnySigner = () => {
+    if (!publicKey || !signTransaction) return null;
+    return { connection, signer: { publicKey, signTransaction } };
+  };
 
   const handleRelease = async () => {
     setActionLoading(true);
     try {
-      const chain = requireVaultSigner();
-      const sig = chain
-        ? await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain)
-        : await releaseViaCustodialVault(escrow.id);
+      let sig: string;
+      if (escrow.onchain) {
+        const chain = requireAnySigner();
+        if (!chain) throw new Error("Connect your wallet to release this escrow.");
+        sig = await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain);
+      } else {
+        const chain = requireVaultSigner();
+        sig = chain
+          ? await releaseEscrow(escrow.id, Number(escrow.amount_audd), escrow.receiver_wallet, chain)
+          : await releaseViaCustodialVault(escrow.id);
+      }
       toast({ title: "Funds released", description: "AUDD transferred on-chain to the receiver." });
       setReleasedTx(sig);
       load();
     } catch (e: any) {
       toast({ title: "Release failed", description: e.message, variant: "destructive" });
+    } finally { setActionLoading(false); }
+  };
+
+  const handleRefund = async () => {
+    setActionLoading(true);
+    try {
+      const chain = requireAnySigner();
+      if (!chain) throw new Error("Connect your wallet to refund this escrow.");
+      const sig = await refundEscrow(escrow.id, chain);
+      toast({ title: "Refunded", description: "AUDD returned on-chain to the buyer." });
+      setReleasedTx(sig);
+      load();
+    } catch (e: any) {
+      toast({ title: "Refund failed", description: e.message, variant: "destructive" });
     } finally { setActionLoading(false); }
   };
   const handleApproveMilestone = async (m: MilestoneRow) => {
@@ -111,6 +140,18 @@ export default function EscrowDetail() {
   };
   const handleDispute = async () => {
     try {
+      if (escrow.onchain) {
+        const chain = requireAnySigner();
+        if (chain) {
+          try {
+            await raiseDisputeOnChain(escrow.id, chain);
+          } catch (e: any) {
+            // Don't block the off-chain dispute room over this — surface it
+            // but still let the human dispute process proceed.
+            toast({ title: "Couldn't flag on-chain", description: e.message, variant: "destructive" });
+          }
+        }
+      }
       const disputeId = await openDispute(escrow.id, disputeReason || "No reason provided");
       toast({ title: "Dispute opened", description: "Release is paused. Work it out in the dispute room." });
       setDisputeReason("");
@@ -137,6 +178,7 @@ export default function EscrowDetail() {
         isReleasable={isReleasable}
         isDisputable={isDisputable}
         onRelease={handleRelease}
+        onRefund={handleRefund}
         onApproveMilestone={handleApproveMilestone}
         onDispute={handleDispute}
         onDismissReleaseScreen={() => setReleasedTx(null)}
@@ -188,7 +230,12 @@ export default function EscrowDetail() {
 
                 {/* Actions */}
                 <div className="mt-6 space-y-2">
-                  {isReleasable && !isVaultConnected && (
+                  {isReleasable && escrow.onchain && (
+                    <p className="text-xs text-muted-foreground">
+                      This escrow is held on-chain in its own program-owned vault — connect your wallet to release or refund it directly.
+                    </p>
+                  )}
+                  {isReleasable && !escrow.onchain && !isVaultConnected && (
                     <p className="text-xs text-muted-foreground">
                       Release will be signed by the custodial vault ({shortAddr(ESCROW_VAULT_ADDRESS)}) on the server. Connect the vault wallet to sign locally instead.
                     </p>
@@ -217,6 +264,28 @@ export default function EscrowDetail() {
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction onClick={handleRelease}>Confirm release</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    {isReleasable && escrow.onchain && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" className="gap-1.5" disabled={actionLoading}>
+                            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                            Refund Buyer
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Refund {Number(escrow.amount_audd).toLocaleString()} AUDD to the buyer?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Returns the escrowed funds on-chain to the payer instead of releasing to the receiver. Irreversible once confirmed.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleRefund}>Confirm refund</AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>

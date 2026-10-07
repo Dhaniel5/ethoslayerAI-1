@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, CheckCircle2, AlertTriangle, Loader2, ExternalLink, Share2,
+  ArrowLeft, CheckCircle2, AlertTriangle, Loader2, ExternalLink, Share2, X,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -44,6 +44,7 @@ interface Props {
   isReleasable: boolean;
   isDisputable: boolean;
   onRelease: () => void;
+  onRefund: () => void;
   onApproveMilestone: (m: MilestoneRow) => void;
   onDispute: () => void;
   onDismissReleaseScreen: () => void;
@@ -52,7 +53,7 @@ interface Props {
 export default function MobileEscrowDetail({
   escrow, milestones, events, disputeId, actionLoading, releasedTx,
   disputeReason, setDisputeReason, isReleasable, isDisputable,
-  onRelease, onApproveMilestone, onDispute, onDismissReleaseScreen,
+  onRelease, onRefund, onApproveMilestone, onDispute, onDismissReleaseScreen,
 }: Props) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -227,6 +228,28 @@ export default function MobileEscrowDetail({
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={onRelease}>Confirm release</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+        {isReleasable && escrow.onchain && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="w-full gap-1.5" disabled={actionLoading}>
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                Refund Buyer
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Refund {Number(escrow.amount_audd).toLocaleString()} AUDD to the buyer?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Returns the escrowed funds on-chain to the payer instead of releasing to the receiver. Irreversible once confirmed.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onRefund}>Confirm refund</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
