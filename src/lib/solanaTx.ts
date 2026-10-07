@@ -20,7 +20,7 @@ export interface SignAndSend {
   signTransaction: (tx: Transaction) => Promise<Transaction>;
 }
 
-function uiAmountToBase(amount: number): bigint {
+export function uiAmountToBase(amount: number): bigint {
   // Avoid float precision: convert via string with fixed decimals.
   const [whole, frac = ""] = amount.toFixed(AUDD_DECIMALS).split(".");
   const padded = (frac + "0".repeat(AUDD_DECIMALS)).slice(0, AUDD_DECIMALS);

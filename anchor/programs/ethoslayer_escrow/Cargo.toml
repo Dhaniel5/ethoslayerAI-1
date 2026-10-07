@@ -1,0 +1,20 @@
+[package]
+name = "ethoslayer_escrow"
+version = "0.1.0"
+description = "On-chain escrow program for EthosLayer: PDA-held vault, buyer-funded, released by buyer confirmation or arbiter dispute resolution."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ethoslayer_escrow"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.30.1"
+anchor-spl = "0.30.1"

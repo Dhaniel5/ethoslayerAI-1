@@ -2,8 +2,14 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { supabase } from "@/integrations/supabase/client";
 import type { TrustResult } from "./trustScore";
-import { ESCROW_VAULT, ESCROW_VAULT_ADDRESS } from "./solanaConfig";
-import { confirmSignature, sendAuddTransfer, type SignAndSend } from "./solanaTx";
+import { AUDD_MINT, ESCROW_VAULT, ESCROW_VAULT_ADDRESS } from "./solanaConfig";
+import { confirmSignature, sendAuddTransfer, uiAmountToBase, type SignAndSend } from "./solanaTx";
+import {
+  initializeEscrowOnChain,
+  releaseEscrowOnChain,
+  refundEscrowOnChain,
+  raiseDisputeOnChain as raiseDisputeOnChainIx,
+} from "./escrowProgram";
 
 export type EscrowStatus =
   | "pending"
@@ -100,11 +106,12 @@ function assertVault() {
  * Create an escrow by locking AUDD: payer signs an SPL transfer to the vault.
  * The connected wallet must be the payer.
  */
+const DEFAULT_ESCROW_LIFETIME_SECONDS = 30 * 24 * 60 * 60; // 30 days
+
 export async function createEscrow(
   input: CreateEscrowInput,
   chain: ChainContext,
 ): Promise<EscrowRow> {
-  assertVault();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Sign in required");
 
@@ -113,16 +120,75 @@ export async function createEscrow(
     throw new Error("Connected wallet does not match the payer wallet.");
   }
 
-  // 1. Send & confirm on-chain transfer payer → vault FIRST. No DB row if chain fails.
-  const sig = await sendAuddTransfer(
-    chain.connection,
-    chain.signer,
-    ESCROW_VAULT!,
-    input.amount_audd,
-  );
-  await confirmSignature(chain.connection, sig);
-
   const hasMilestones = !!input.milestones && input.milestones.length > 0;
+
+  // Milestone escrows need partial releases per milestone, which the
+  // ethoslayer_escrow program doesn't support yet (it only does a single
+  // full release/refund of the vault) — those still go through the
+  // custodial vault path below until the program grows that capability.
+  // Everything else (the common case) now actually locks funds on-chain,
+  // in a program-owned PDA vault, instead of a backend-held wallet.
+  if (!hasMilestones) {
+    const seller = new PublicKey(input.receiver_wallet.trim());
+    const mint = input.token_mint ? new PublicKey(input.token_mint) : AUDD_MINT;
+    if (!mint) throw new Error("No token mint configured for this escrow.");
+
+    const expirySeconds = input.expires_at
+      ? Math.floor(new Date(input.expires_at).getTime() / 1000)
+      : Math.floor(Date.now() / 1000) + DEFAULT_ESCROW_LIFETIME_SECONDS;
+
+    const { signature, escrowPda, nonce } = await initializeEscrowOnChain({
+      connection: chain.connection,
+      buyer: chain.signer,
+      seller,
+      mint,
+      amount: uiAmountToBase(input.amount_audd),
+      expiry: BigInt(expirySeconds),
+    });
+
+    const { data: escrow, error } = await supabase
+      .from("escrows")
+      .insert({
+        user_id: auth.user.id,
+        payer_wallet: input.payer_wallet.trim(),
+        receiver_wallet: input.receiver_wallet.trim(),
+        amount_audd: input.amount_audd,
+        description: input.description ?? null,
+        condition_type: "approval",
+        status: "locked",
+        trust_score: input.trust.score,
+        trust_level: input.trust.level,
+        trust_factors: input.trust.factors,
+        expires_at: input.expires_at ?? new Date(expirySeconds * 1000).toISOString(),
+        token_mint: mint.toBase58(),
+        token_label: input.token_label ?? null,
+        ai_analysis: input.ai_analysis ?? null,
+        escrow_pda: escrowPda.toBase58(),
+        escrow_nonce: nonce.toString(),
+        onchain: true,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+
+    await supabase.from("escrow_events").insert([
+      { escrow_id: escrow.id, event_type: "created", amount_audd: input.amount_audd },
+      {
+        escrow_id: escrow.id,
+        event_type: "locked",
+        amount_audd: input.amount_audd,
+        tx_signature: signature,
+        note: `Locked on-chain in escrow PDA ${escrowPda.toBase58()}`,
+      },
+    ]);
+
+    return escrow as EscrowRow;
+  }
+
+  // --- Milestone path: unchanged custodial-vault flow ---
+  assertVault();
+  const sig = await sendAuddTransfer(chain.connection, chain.signer, ESCROW_VAULT!, input.amount_audd);
+  await confirmSignature(chain.connection, sig);
 
   const { data: escrow, error } = await supabase
     .from("escrows")
@@ -132,7 +198,7 @@ export async function createEscrow(
       receiver_wallet: input.receiver_wallet.trim(),
       amount_audd: input.amount_audd,
       description: input.description ?? null,
-      condition_type: hasMilestones ? "milestones" : "approval",
+      condition_type: "milestones",
       status: "locked",
       trust_score: input.trust.score,
       trust_level: input.trust.level,
@@ -146,16 +212,14 @@ export async function createEscrow(
     .single();
   if (error) throw error;
 
-  if (hasMilestones) {
-    const rows = input.milestones!.map((m, i) => ({
-      escrow_id: escrow.id,
-      title: m.title,
-      amount_audd: m.amount_audd,
-      position: i,
-    }));
-    const { error: mErr } = await supabase.from("escrow_milestones").insert(rows);
-    if (mErr) throw mErr;
-  }
+  const rows = input.milestones!.map((m, i) => ({
+    escrow_id: escrow.id,
+    title: m.title,
+    amount_audd: m.amount_audd,
+    position: i,
+  }));
+  const { error: mErr } = await supabase.from("escrow_milestones").insert(rows);
+  if (mErr) throw mErr;
 
   await supabase.from("escrow_events").insert([
     { escrow_id: escrow.id, event_type: "created", amount_audd: input.amount_audd },
@@ -181,16 +245,29 @@ export async function releaseEscrow(
   receiverWallet: string,
   chain: ChainContext,
 ) {
-  assertVault();
-  if (chain.signer.publicKey.toBase58() !== ESCROW_VAULT_ADDRESS) {
-    throw new Error(
-      `Release must be signed by the vault wallet (${ESCROW_VAULT_ADDRESS.slice(0, 8)}…). Connect that wallet to release funds.`,
-    );
-  }
-  const receiver = new PublicKey(receiverWallet);
+  const { data: row, error: rowErr } = await supabase
+    .from("escrows")
+    .select("onchain, escrow_pda")
+    .eq("id", escrowId)
+    .single();
+  if (rowErr) throw rowErr;
 
-  const sig = await sendAuddTransfer(chain.connection, chain.signer, receiver, amount);
-  await confirmSignature(chain.connection, sig);
+  let sig: string;
+  if (row.onchain && row.escrow_pda) {
+    // The program itself enforces who's allowed to call this (buyer while
+    // not disputed, or the arbiter) — nothing to pre-check client-side.
+    sig = await releaseEscrowOnChain({ connection: chain.connection, signer: chain.signer }, new PublicKey(row.escrow_pda));
+  } else {
+    assertVault();
+    if (chain.signer.publicKey.toBase58() !== ESCROW_VAULT_ADDRESS) {
+      throw new Error(
+        `Release must be signed by the vault wallet (${ESCROW_VAULT_ADDRESS.slice(0, 8)}…). Connect that wallet to release funds.`,
+      );
+    }
+    const receiver = new PublicKey(receiverWallet);
+    sig = await sendAuddTransfer(chain.connection, chain.signer, receiver, amount);
+    await confirmSignature(chain.connection, sig);
+  }
 
   await supabase
     .from("escrows")
@@ -203,6 +280,47 @@ export async function releaseEscrow(
     tx_signature: sig,
   });
   return sig;
+}
+
+/** Refunds an on-chain escrow back to the buyer. Only works for escrows
+ * created on-chain (`onchain === true`) — see createEscrow. */
+export async function refundEscrow(escrowId: string, chain: ChainContext) {
+  const { data: row, error: rowErr } = await supabase
+    .from("escrows")
+    .select("onchain, escrow_pda, amount_audd")
+    .eq("id", escrowId)
+    .single();
+  if (rowErr) throw rowErr;
+  if (!row.onchain || !row.escrow_pda) {
+    throw new Error("This escrow wasn't created on-chain, so it can't be refunded this way.");
+  }
+
+  const sig = await refundEscrowOnChain({ connection: chain.connection, signer: chain.signer }, new PublicKey(row.escrow_pda));
+
+  await supabase.from("escrows").update({ status: "expired" }).eq("id", escrowId);
+  await supabase.from("escrow_events").insert({
+    escrow_id: escrowId,
+    event_type: "cancelled",
+    amount_audd: row.amount_audd,
+    tx_signature: sig,
+    note: "Refunded to buyer on-chain",
+  });
+  return sig;
+}
+
+/** Raises a dispute on the on-chain escrow itself (separate from the
+ * off-chain `disputeEscrow` bookkeeping below — call both for an on-chain
+ * escrow: this locks the program's release/refund to arbiter-only, the
+ * other updates the row AI/dispute-review tooling reads). */
+export async function raiseDisputeOnChain(escrowId: string, chain: ChainContext) {
+  const { data: row, error: rowErr } = await supabase
+    .from("escrows")
+    .select("onchain, escrow_pda")
+    .eq("id", escrowId)
+    .single();
+  if (rowErr) throw rowErr;
+  if (!row.onchain || !row.escrow_pda) return null; // nothing on-chain to flag
+  return raiseDisputeOnChainIx({ connection: chain.connection, signer: chain.signer, escrowPda: new PublicKey(row.escrow_pda) });
 }
 
 export async function approveMilestone(

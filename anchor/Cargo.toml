@@ -1,0 +1,3 @@
+[workspace]
+members = ["programs/ethoslayer_escrow"]
+resolver = "2"

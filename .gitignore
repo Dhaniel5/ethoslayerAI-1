@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Anchor build artifacts (generated locally by `anchor build`)
+anchor/target
+anchor/.anchor
+anchor/test-ledger
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
