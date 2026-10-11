@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Anchor workspace build artifacts / deps (anchor/)
+anchor/target
+anchor/node_modules
+anchor/.anchor
+anchor/test-ledger

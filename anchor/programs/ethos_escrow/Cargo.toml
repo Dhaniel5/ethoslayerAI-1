@@ -1,0 +1,23 @@
+[package]
+name = "ethos_escrow"
+version = "0.1.0"
+description = "EthosLayer on-chain escrow: PDA-held vault, milestones, arbiter-resolved disputes"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ethos_escrow"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+# Required by Anchor >= 0.30 for IDL generation; `anchor build` fails without it.
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+# `init-if-needed` is required by the vault ATA constraint in lock_funds.
+anchor-lang = { version = "0.32.2", features = ["init-if-needed"] }
+anchor-spl = "0.32.2"
