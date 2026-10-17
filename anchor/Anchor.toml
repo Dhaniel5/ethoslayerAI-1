@@ -1,6 +1,6 @@
 # Versions this was written against (NOT yet verified by a real build — see README):
 #   anchor-lang / anchor-spl / Anchor CLI : 0.32.2
-#   Solana (Agave) CLI                     : 4.3.x
+#   Solana (Agave) CLI                     : 2.3.0 (recommended by Anchor 0.32; see README for the v3 / Agave 4.3 step before mainnet)
 [features]
 resolution = true
 skip-lint = false

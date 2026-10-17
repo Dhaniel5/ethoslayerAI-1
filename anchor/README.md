@@ -109,77 +109,96 @@ hooks, etc.) is **not supported and untested** — add it separately if wanted.
 
 ## Toolchain
 
-Why not Anchor 0.30.1 (what the original pinned)? Verified findings:
-* `anchor-lang` 0.30.1 depends on old Solana crates and builds the old
-  sBPFv0 format. Current validators are moving to **require sBPFv3** (SIMD-0500:
-  `solana-test-validator` 4.3 already enforces it; mainnet is expected around
-  Agave 4.4, Nov 2026 per Chainstack's migration guide — a third-party source;
-  confirm against Solana's own announcements).
-* Anchor CLI 0.30.1 also fails to *install* on Rust ≥ 1.80 (`time` crate).
-* **0.31.2 and 0.32.2 (released 2026-09-14) are the 0.x lines with sBPFv3
-  support.** I chose 0.32.2: the smallest jump with that support. (There is no
-  `anchor-lang` 0.30.2 on crates.io, despite what some docs say.)
-* Anchor 1.x is current but has bigger breaking changes (TS package moved to
-  `@anchor-lang/core`, `anchor test` uses Surfpool, Solana CLI 3.x+). Not used
-  here; revisit once 0.32.2 builds and passes.
-
-| Component | Version this targets |
+| Component | Version |
 | --- | --- |
 | Anchor CLI / `anchor-lang` / `anchor-spl` | 0.32.2 |
+| Solana (Agave) CLI | **2.3.0** — the version Anchor 0.32.0's own release notes recommend |
+| Host Rust (used for the IDL build) | **>= 1.89** (`rustup update`) — an Anchor 0.32 requirement |
 | TS client | `@anchor-lang/core` 0.32.2 |
-| Solana (Agave) CLI | 4.3.x |
-| Rust | stable via rustup (`cargo build-sbf` needs rustup's cargo) |
+
+### Why Anchor 0.32.2 (and not 0.30.1 or 1.x)
+* 0.30.1 depends on old Solana crates and its CLI fails to install on newer Rust.
+  (There is no `anchor-lang` 0.30.2 on crates.io.)
+* 0.32.2 is the last 0.x line, pairs with Solana 2.3.0, and needs only small
+  changes from the 0.30-style code this was written in.
+* Anchor 1.x (current: 1.2.1) is a reasonable alternative and probably the better
+  *long-term* target. Changes that would affect this program: `CpiContext::new`
+  takes the program ID instead of an AccountInfo (2 call sites); `#[instruction(..)]`
+  arguments are validated against the handler (this program lists only a prefix of
+  `lock_funds`'s args — unverified whether that is still accepted); `anchor build`
+  errors on a program-ID/keypair mismatch (use `--ignore-keys` for the first build);
+  `anchor test` defaults to Surfpool (`--validator legacy` for the old validator);
+  Solana CLI 3.x+/4.x. Do not use 1.0.0 specifically — use the latest 1.x.
+* Nothing in this README has been confirmed by a real build yet.
+
+### sBPF versions: two stages
+Solana is moving to require **sBPFv3** for new deployments/upgrades (SIMD-0500, feature
+`B8JJXCy5amZyWG9r7EnUYLwzXSXTxG7GZ1qZ1qggo83g`). Per a third-party source
+(Chainstack's migration guide, not Solana's own docs — re-verify): it is expected on
+mainnet around Agave 4.4 in November 2026; it was inactive on mainnet when that guide
+was written; sBPFv3 deployment itself is already enabled on mainnet.
+
+* **Stage 1 — now (local tests, devnet): Solana 2.3.0 + plain `anchor build`.** This
+  produces an sBPFv0 binary. The 2.3.0 test validator predates SIMD-0500, so
+  `anchor test` works. Whether *devnet* still accepts v0 must be checked (below).
+* **Stage 2 — before mainnet: upgrade to Agave >= 4.3.0 and rebuild as v3.** On
+  Anchor 0.32.2: `anchor build --no-idl -- --arch v3`, then build the IDL separately
+  (`anchor idl build -o target/idl/ethos_escrow.json`). Verify with
+  `readelf -h target/deploy/ethos_escrow.so | grep Flags` (want `0x3`). Agave 2.3.0
+  cannot produce a v3 build.
 
 ### Install (Ubuntu / WSL)
 ```bash
-cargo install --git https://github.com/solana-foundation/anchor avm --force   # you have this
-avm install 0.32.2
-avm use 0.32.2
-anchor --version        # expect: anchor-cli 0.32.2
-solana --version        # expect Agave 4.3.x; if older: sh -c "$(curl -sSfL https://release.anza.xyz/v4.3.0/install)"
+avm install 0.32.2 && avm use 0.32.2
+anchor --version      # anchor-cli 0.32.2
+solana --version      # 2.3.x
+rustc --version       # need >= 1.89; if lower: rustup update
 cd anchor && npm install
 ```
 
 ### Build
-Anchor 0.32.2's `anchor build` still emits sBPFv0, so build v3 explicitly, in two steps:
 ```bash
-anchor build --no-idl -- --arch v3
-mkdir -p target/idl target/types
-anchor idl build -o target/idl/ethos_escrow.json -t target/types/ethos_escrow.ts
-readelf -h target/deploy/ethos_escrow.so | grep Flags     # want 0x3
+anchor build
 ```
-If the IDL step errors on proc-macro issues, retry with `RUSTUP_TOOLCHAIN=stable`.
+If it fails with ``feature `edition2024` is required``, a transitive dependency has
+moved to a Rust edition the Solana build tools cannot parse. Report the exact error;
+fixes are pinning that dependency or building with newer platform-tools
+(`cargo build-sbf --tools-version <newer> --install-only`).
 
 ### Program ID
-The ID in `lib.rs`/`Anchor.toml` is a **placeholder**. After the first build created
+The ID in `lib.rs`/`Anchor.toml` is a **placeholder**. After the first build creates
 `target/deploy/ethos_escrow-keypair.json`:
 ```bash
-anchor keys sync          # rewrites declare_id! and Anchor.toml to match the keypair
-anchor build --no-idl -- --arch v3   # rebuild so the binary embeds the real ID
+anchor keys sync      # rewrites declare_id! and Anchor.toml to match the keypair
+anchor build          # rebuild so the binary embeds the real ID
 ```
-Back up `target/deploy/ethos_escrow-keypair.json` somewhere safe and never commit
-or paste it. Do not overwrite an existing program keypair.
+Back up `target/deploy/ethos_escrow-keypair.json` somewhere safe; never commit or paste
+it; never overwrite an existing program keypair.
 
 ### Test (local validator)
 ```bash
-anchor test --skip-build
+anchor test
 ```
-`--skip-build` keeps your v3 binary. If the local validator rejects a v0 build
-(`Detected sbpf_version required by the executable which are not enabled`), you
-built v0 — rebuild with `--arch v3` as above.
+Starts a local validator, deploys the program, and runs `tests/ethos_escrow.ts`.
 
 ### Devnet
-First check whether devnet enforces SIMD-0500 (decides whether a v0 build would be rejected):
+First check whether devnet already requires sBPFv3 (this decides whether a v0 build
+would be rejected):
 ```bash
 solana feature status B8JJXCy5amZyWG9r7EnUYLwzXSXTxG7GZ1qZ1qggo83g --url devnet
 ```
-Build v3 regardless (it works either way). Then, only after `anchor test` passes:
+* `inactive` -> a Stage 1 (v0) build can be deployed.
+* `active`   -> do Stage 2 first (Agave >= 4.3.0, v3 build).
+
+Then, only after `anchor test` passes:
 ```bash
 solana config set --url devnet
-solana balance                      # need ~3-5 devnet SOL for a program this size
+solana balance        # need roughly 3-5 devnet SOL
 solana program deploy target/deploy/ethos_escrow.so \
   --program-id target/deploy/ethos_escrow-keypair.json --url devnet
 ```
+A rejected deployment leaves a buffer account holding rent; reclaim it with
+`solana program show --buffers` and `solana program close --buffers`.
 
 ## Frontend integration (not done)
 The program's interface differs from what the app expects today:
