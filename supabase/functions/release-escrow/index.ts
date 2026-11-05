@@ -10,6 +10,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import bs58 from "npm:bs58@5.0.0";
+import { notifyEscrow } from "../_shared/push.ts";
 import { ed25519 } from "npm:@noble/curves@1.8.2/ed25519";
 
 const corsHeaders = {
@@ -343,6 +344,12 @@ Deno.serve(async (req) => {
         body: "Settlement executed on-chain. The dispute is fully closed.",
       });
 
+      await notifyEscrow(serviceClient, {
+        kind: "settled", escrowId: escrow_id, amount: escrow.amount_audd,
+        userIds: [escrow.user_id, escrow.payee_user_id],
+        note: `Dispute ${dispute.ref} settled: ${sellerAmount} AUDD to seller, ${buyerAmount} AUDD refunded.`,
+      });
+
       return new Response(JSON.stringify({ signature: settlementSig, signatures: sigs, vault: vault.publicKeyBase58 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -395,6 +402,12 @@ Deno.serve(async (req) => {
         note: "Released by custodial vault",
       });
     }
+
+    await notifyEscrow(serviceClient, {
+      kind: "released", escrowId: escrow_id, amount,
+      userIds: [escrow.user_id, escrow.payee_user_id],
+      note: milestone ? `Milestone "${milestone.title}" paid: ${amount} AUDD.` : null,
+    });
 
     return new Response(JSON.stringify({ signature: sig, vault: vault.publicKeyBase58 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
