@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Plus, Trash2, ShieldCheck, Loader2, X, AlertCircle, CheckCircle2 } from "lucide-react";
