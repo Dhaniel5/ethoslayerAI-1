@@ -35,7 +35,7 @@ import {
   WalletSignTransactionError,
   type WalletName,
 } from "@solana/wallet-adapter-base";
-import { PublicKey, Transaction } from "@solana/web3.js";
+import { PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import nacl from "tweetnacl";
 import bs58 from "bs58";
 import { isNative } from "@/lib/native";
@@ -232,11 +232,14 @@ export class DeeplinkWalletAdapter extends BaseSignerWalletAdapter {
     this.emit("disconnect");
   }
 
-  async signTransaction<T extends Transaction>(transaction: T): Promise<T> {
+  async signTransaction<T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> {
     if (!this.publicKey || !this.sharedSecret || !this.dappKeyPair || !this.session) {
       throw new WalletNotConnectedError();
     }
-    const serialized = transaction.serialize({ requireAllSignatures: false, verifySignatures: false });
+    const serialized =
+      transaction instanceof VersionedTransaction
+        ? transaction.serialize()
+        : transaction.serialize({ requireAllSignatures: false, verifySignatures: false });
     const nonce = nacl.randomBytes(24);
     const body = new TextEncoder().encode(
       JSON.stringify({ transaction: bs58.encode(serialized), session: this.session }),
@@ -252,7 +255,7 @@ export class DeeplinkWalletAdapter extends BaseSignerWalletAdapter {
       this.pendingSign = { resolve, reject };
       window.location.href = `${this.connectBase}/signTransaction?${params.toString()}`;
     });
-    return signed as T;
+    return signed as unknown as T;
   }
 }
 
