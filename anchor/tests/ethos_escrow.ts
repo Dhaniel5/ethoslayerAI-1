@@ -10,7 +10,7 @@
  */
 import * as anchor from "@anchor-lang/core";
 import { AnchorProvider, BN, Program } from "@anchor-lang/core";
-import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -23,7 +23,12 @@ import {
 import { assert } from "chai";
 import { randomBytes } from "crypto";
 
-const provider = AnchorProvider.env();
+// "confirmed" (not the default "processed") avoids most devnet flakes where a
+// follow-up transaction is simulated by a node that has not seen the previous one.
+const provider = AnchorProvider.local(process.env.ANCHOR_PROVIDER_URL, {
+  commitment: "confirmed",
+  preflightCommitment: "confirmed",
+});
 anchor.setProvider(provider);
 const program = anchor.workspace.EthosEscrow as Program<any>;
 const conn = provider.connection;
@@ -32,12 +37,30 @@ const walletKp: Keypair = (provider.wallet as any).payer;
 let mint: PublicKey;
 let otherMint: PublicKey;
 
+// Protocol-wide arbiter used for every test escrow (set on the Config in the
+// first test below). Admin = the provider wallet, which is the program's
+// upgrade authority on the deployment these tests run against.
+const arbiterKp = Keypair.generate();
+const BPF_LOADER = new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111");
+let configPda: PublicKey;
+let programData: PublicKey;
+
 // ---------------------------------------------------------------- helpers
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const now = () => Math.floor(Date.now() / 1000);
 const U64_MAX = new BN("18446744073709551615");
 
 async function airdrop(pk: PublicKey, sol = 5) {
+  // On devnet the faucet is rate-limited, so fund test payers from the provider
+  // wallet instead: set FUND_FROM_WALLET=<sol per payer> (e.g. 0.05).
+  if (process.env.FUND_FROM_WALLET) {
+    const lamports = Math.round(Number(process.env.FUND_FROM_WALLET) * 1_000_000_000);
+    const tx = new Transaction().add(
+      SystemProgram.transfer({ fromPubkey: walletKp.publicKey, toPubkey: pk, lamports })
+    );
+    await sendAndConfirmTransaction(conn, tx, [walletKp]);
+    return;
+  }
   const sig = await conn.requestAirdrop(pk, sol * 1_000_000_000);
   const bh = await conn.getLatestBlockhash();
   await conn.confirmTransaction({ signature: sig, ...bh }, "confirmed");
@@ -77,10 +100,10 @@ interface Fx {
   receiverAta: PublicKey;
 }
 
-async function newFixture(funds = 1_000_000): Promise<Fx> {
-  const payer = Keypair.generate();
+async function newFixture(funds = 1_000_000, payerKp?: Keypair): Promise<Fx> {
+  const payer = payerKp ?? Keypair.generate();
   const receiver = Keypair.generate();
-  const arbiter = Keypair.generate();
+  const arbiter = arbiterKp;
   await airdrop(payer.publicKey);
   const id = Array.from(randomBytes(16));
   const [escrow] = PublicKey.findProgramAddressSync(
@@ -102,7 +125,6 @@ interface LockOpts {
   amount?: number;
   expiry?: number;
   milestones?: (number | BN)[];
-  arbiter?: PublicKey;
   receiver?: PublicKey;
   payerAta?: PublicKey;
   amountBn?: BN;
@@ -118,7 +140,7 @@ function lock(f: Fx, o: LockOpts = {}) {
     .accountsPartial({
       payer: f.payer.publicKey,
       receiver: o.receiver ?? f.receiver.publicKey,
-      arbiter: o.arbiter ?? f.arbiter.publicKey,
+      config: configPda,
       mint,
       escrow: f.escrow,
       vault: f.vault,
@@ -174,12 +196,40 @@ const resolve = (f: Fx, signer: Keypair, toReceiver: BN | number, over: Over = {
     .resolveDispute(new BN(toReceiver))
     .accountsPartial({
       ...base(f, signer),
+      config: configPda,
       receiverAta: f.receiverAta,
       payerAta: f.payerAta,
       ...over,
     })
     .signers([signer])
     .rpc();
+
+const signersFor = (kp: Keypair) => (kp.publicKey.equals(walletKp.publicKey) ? [] : [kp]);
+const initConfig = (admin: Keypair, arbiter: PublicKey) =>
+  program.methods
+    .initializeConfig(arbiter)
+    .accountsPartial({
+      admin: admin.publicKey,
+      config: configPda,
+      program: program.programId,
+      programData,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers(signersFor(admin))
+    .rpc();
+const setArbiter = (admin: Keypair, arbiter: PublicKey) =>
+  program.methods
+    .setArbiter(arbiter)
+    .accountsPartial({ admin: admin.publicKey, config: configPda })
+    .signers(signersFor(admin))
+    .rpc();
+const setAdmin = (admin: Keypair, newAdmin: PublicKey) =>
+  program.methods
+    .setAdmin(newAdmin)
+    .accountsPartial({ admin: admin.publicKey, config: configPda })
+    .signers(signersFor(admin))
+    .rpc();
+const fetchConfig = async (): Promise<any> => (program.account as any).config.fetch(configPda);
 
 async function view(f: Fx) {
   const e: any = await (program.account as any).escrow.fetch(f.escrow);
@@ -203,6 +253,75 @@ describe("ethos_escrow", () => {
   before(async () => {
     mint = await createMint(conn, walletKp, walletKp.publicKey, null, 6);
     otherMint = await createMint(conn, walletKp, walletKp.publicKey, null, 6);
+    [configPda] = PublicKey.findProgramAddressSync([Buffer.from("config")], program.programId);
+    [programData] = PublicKey.findProgramAddressSync([program.programId.toBuffer()], BPF_LOADER);
+  });
+
+  // Runs first: every later test needs the config + arbiter in place.
+  describe("config and arbiter (protocol-wide)", () => {
+    it("creates the config (only the upgrade authority can) and sets the arbiter", async () => {
+      if (!(await conn.getAccountInfo(configPda))) {
+        const stranger = Keypair.generate();
+        await airdrop(stranger.publicKey);
+        await expectErr(initConfig(stranger, arbiterKp.publicKey), "Unauthorized");
+        await initConfig(walletKp, arbiterKp.publicKey);
+      } else {
+        // Re-running against an existing deployment: this run takes over the
+        // arbiter slot (assumes the provider wallet is still the admin).
+        await setArbiter(walletKp, arbiterKp.publicKey);
+      }
+      const c = await fetchConfig();
+      assert.equal(c.arbiter.toBase58(), arbiterKp.publicKey.toBase58());
+      assert.equal(c.admin.toBase58(), walletKp.publicKey.toBase58());
+    });
+    it("only the admin can change the arbiter, and never to the zero address", async () => {
+      const stranger = Keypair.generate();
+      await expectErr(setArbiter(stranger, stranger.publicKey), "Unauthorized");
+      await expectErr(setArbiter(arbiterKp, arbiterKp.publicKey), "Unauthorized"); // arbiter is not admin
+      await expectErr(setArbiter(walletKp, PublicKey.default), "InvalidParties");
+      assert.equal((await fetchConfig()).arbiter.toBase58(), arbiterKp.publicKey.toBase58());
+    });
+    it("a rotated arbiter can resolve; the previous arbiter no longer can", async () => {
+      const f = await newFixture();
+      await lock(f, { amount: 1000 });
+      await dispute(f, f.payer);
+      const newArbiter = Keypair.generate();
+      await setArbiter(walletKp, newArbiter.publicKey);
+      try {
+        await expectErr(resolve(f, arbiterKp, 500), "Unauthorized");
+        await resolve(f, newArbiter, 500);
+        const v = await view(f);
+        assert.equal(v.state, "resolved");
+        assert.equal(v.released, 500);
+        assert.equal(v.refunded, 500);
+      } finally {
+        await setArbiter(walletKp, arbiterKp.publicKey);
+      }
+    });
+    it("an arbiter can never settle an escrow it is a party to", async () => {
+      const f = await newFixture();
+      await lock(f, { amount: 1000 });
+      await dispute(f, f.payer);
+      await setArbiter(walletKp, f.receiver.publicKey); // rotate arbiter onto the receiver
+      try {
+        await expectErr(resolve(f, f.receiver, 1000), "Unauthorized");
+        assert.equal(await bal(f.vaultAta), 1000);
+      } finally {
+        await setArbiter(walletKp, arbiterKp.publicKey);
+      }
+    });
+    it("admin can hand the role to another key and that key can take it back", async () => {
+      const other = Keypair.generate();
+      await expectErr(setAdmin(other, other.publicKey), "Unauthorized");
+      await expectErr(setAdmin(walletKp, PublicKey.default), "InvalidParties");
+      await setAdmin(walletKp, other.publicKey);
+      try {
+        await expectErr(setArbiter(walletKp, arbiterKp.publicKey), "Unauthorized"); // old admin lost the role
+      } finally {
+        await setAdmin(other, walletKp.publicKey); // hand it back
+      }
+      assert.equal((await fetchConfig()).admin.toBase58(), walletKp.publicKey.toBase58());
+    });
   });
 
   describe("create + fund (lock_funds)", () => {
@@ -245,11 +364,12 @@ describe("ethos_escrow", () => {
       const f = await newFixture();
       await expectErr(lock(f, { amount: 1000, milestones: [U64_MAX, new BN(2)] }), "MathOverflow");
     });
-    it("rejects overlapping roles (payer/receiver/arbiter must differ)", async () => {
+    it("rejects overlapping roles (payer, receiver and the protocol arbiter must differ)", async () => {
       const f = await newFixture();
       await expectErr(lock(f, { receiver: f.payer.publicKey }), "InvalidParties");
-      await expectErr(lock(f, { arbiter: f.payer.publicKey }), "InvalidParties");
-      await expectErr(lock(f, { arbiter: f.receiver.publicKey }), "InvalidParties");
+      await expectErr(lock(f, { receiver: arbiterKp.publicKey }), "InvalidParties");
+      const g = await newFixture(1_000_000, arbiterKp); // the arbiter trying to be a payer
+      await expectErr(lock(g), "InvalidParties");
     });
     it("rejects a duplicate escrow id from the same payer", async () => {
       const f = await newFixture();

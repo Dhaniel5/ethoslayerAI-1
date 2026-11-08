@@ -11,17 +11,22 @@
 //!              and ONLY if no dispute is open.
 //! * `receiver` is paid; may voluntarily refund the payer at any time while
 //!              the escrow is `Locked`.
-//! * `arbiter`  has exactly one power: resolving an OPEN dispute, splitting
-//!              the remaining balance between receiver and payer. The arbiter
-//!              cannot release or refund an undisputed escrow, and must be a
-//!              different key from both payer and receiver.
+//! * `arbiter`  is ONE protocol-wide key stored in the `Config` account (not
+//!              chosen per escrow). Its only power is resolving an OPEN
+//!              dispute, splitting the remaining balance between receiver and
+//!              payer. It cannot release or refund an undisputed escrow, and
+//!              it can never settle an escrow it is itself a party to.
+//! * `admin`    (also in `Config`) can change the arbiter and hand the admin
+//!              role to another key. It cannot touch escrowed funds.
 //! * Either `payer` or `receiver` can open a dispute. Once `Disputed`, the
 //!   ordinary release / refund paths are closed until the arbiter resolves it.
 //!   Deadlines never auto-release disputed funds.
 //!
-//! The arbiter is chosen by the payer at creation. That is a deliberate v1
-//! simplification with a real trust cost (the receiver must trust that
-//! choice); see README for stronger alternatives.
+//! ### Trust cost of this model (deliberate)
+//! Users must trust whoever controls the arbiter key, and the admin can swap
+//! that key — including while a dispute is open. Put BOTH roles behind a
+//! multisig for production. If the arbiter key is lost the admin can rotate
+//! it, which is the recovery path for disputed funds.
 //!
 //! ## States
 //!
@@ -36,18 +41,45 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, TransferChecked};
 
-// Placeholder. Replaced by `anchor keys sync` after the first build generates
-// the real program keypair (see README). It is a VALID 32-byte address so the
-// crate compiles; it is NOT the deployed program ID.
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+// The real devnet program ID (from the program keypair). A mainnet deployment
+// must use its OWN keypair: regenerate this value with `anchor keys sync`.
+declare_id!("7NFckZbA213ERShSMQKw8Qoi1hExBQ8FJMYGQWf2jc1w");
 
 pub const MAX_MILESTONES: usize = 24;
 pub const ESCROW_SEED: &[u8] = b"escrow";
 pub const VAULT_SEED: &[u8] = b"vault";
+pub const CONFIG_SEED: &[u8] = b"config";
 
 #[program]
 pub mod ethos_escrow {
     use super::*;
+
+    /// One-time setup. Only the program's upgrade authority can call this, so
+    /// nobody can claim the admin role by getting to the program first.
+    pub fn initialize_config(ctx: Context<InitializeConfig>, arbiter: Pubkey) -> Result<()> {
+        require_keys_neq!(arbiter, Pubkey::default(), EscrowError::InvalidParties);
+        let c = &mut ctx.accounts.config;
+        c.admin = ctx.accounts.admin.key();
+        c.arbiter = arbiter;
+        c.bump = ctx.bumps.config;
+        Ok(())
+    }
+
+    /// Admin sets the protocol-wide arbiter (also the key-loss recovery path).
+    pub fn set_arbiter(ctx: Context<AdminOnly>, new_arbiter: Pubkey) -> Result<()> {
+        require_keys_neq!(new_arbiter, Pubkey::default(), EscrowError::InvalidParties);
+        ctx.accounts.config.arbiter = new_arbiter;
+        Ok(())
+    }
+
+    /// Admin hands the admin role to another key (e.g. a multisig). The new
+    /// admin does not sign here, so double-check the address: a wrong value
+    /// permanently loses admin control.
+    pub fn set_admin(ctx: Context<AdminOnly>, new_admin: Pubkey) -> Result<()> {
+        require_keys_neq!(new_admin, Pubkey::default(), EscrowError::InvalidParties);
+        ctx.accounts.config.admin = new_admin;
+        Ok(())
+    }
 
     /// Creates the escrow and funds it atomically: the escrow only exists if
     /// the token transfer into the vault succeeded.
@@ -70,10 +102,10 @@ pub mod ethos_escrow {
 
         let payer = ctx.accounts.payer.key();
         let receiver = ctx.accounts.receiver.key();
-        let arbiter = ctx.accounts.arbiter.key();
+        let arbiter = ctx.accounts.config.arbiter;
         require_keys_neq!(payer, receiver, EscrowError::InvalidParties);
-        require_keys_neq!(arbiter, payer, EscrowError::InvalidParties);
-        require_keys_neq!(arbiter, receiver, EscrowError::InvalidParties);
+        require_keys_neq!(payer, arbiter, EscrowError::InvalidParties);
+        require_keys_neq!(receiver, arbiter, EscrowError::InvalidParties);
 
         if !milestone_amounts.is_empty() {
             let mut sum: u64 = 0;
@@ -91,7 +123,6 @@ pub mod ethos_escrow {
             e.escrow_id = escrow_id;
             e.payer = payer;
             e.receiver = receiver;
-            e.arbiter = arbiter;
             e.mint = ctx.accounts.mint.key();
             e.amount = amount;
             e.released = 0;
@@ -261,15 +292,20 @@ pub mod ethos_escrow {
         Ok(())
     }
 
-    /// Arbiter splits the remaining balance: `to_receiver` goes to the
-    /// receiver, the rest is refunded to the payer. The final state reflects
-    /// what actually moved (Released / Refunded / Resolved).
+    /// The protocol arbiter splits the remaining balance: `to_receiver` goes
+    /// to the receiver, the rest is refunded to the payer. The final state
+    /// reflects what actually moved (Released / Refunded / Resolved).
     pub fn resolve_dispute(ctx: Context<ResolveDispute>, to_receiver: u64) -> Result<()> {
         let escrow_key = ctx.accounts.escrow.key();
         let signer = ctx.accounts.signer.key();
+        let arbiter = ctx.accounts.config.arbiter;
         let (vault_bump, to_refund) = {
             let e = &mut ctx.accounts.escrow;
-            require_keys_eq!(signer, e.arbiter, EscrowError::Unauthorized);
+            require_keys_eq!(signer, arbiter, EscrowError::Unauthorized);
+            // The arbiter can be rotated after an escrow exists, so also make
+            // sure it never settles an escrow it is a party to.
+            require_keys_neq!(signer, e.payer, EscrowError::Unauthorized);
+            require_keys_neq!(signer, e.receiver, EscrowError::Unauthorized);
             require!(e.state == EscrowState::Disputed, EscrowError::InvalidState);
 
             let rem = remaining(e)?;
@@ -369,17 +405,57 @@ fn vault_transfer<'info>(
 // ----------------------------------------------------------------- accounts
 
 #[derive(Accounts)]
+pub struct InitializeConfig<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    #[account(
+        init,
+        payer = admin,
+        space = 8 + Config::INIT_SPACE,
+        seeds = [CONFIG_SEED],
+        bump,
+    )]
+    pub config: Account<'info, Config>,
+    // Only the upgrade authority may create the config (prevents front-running
+    // the admin role). `program` is checked to be this program by its type.
+    #[account(
+        constraint = program.programdata_address()? == Some(program_data.key())
+            @ EscrowError::Unauthorized,
+    )]
+    pub program: Program<'info, crate::program::EthosEscrow>,
+    #[account(
+        constraint = program_data.upgrade_authority_address == Some(admin.key())
+            @ EscrowError::Unauthorized,
+    )]
+    pub program_data: Account<'info, ProgramData>,
+    pub system_program: Program<'info, System>,
+}
+
+/// set_arbiter + set_admin.
+#[derive(Accounts)]
+pub struct AdminOnly<'info> {
+    pub admin: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [CONFIG_SEED],
+        bump = config.bump,
+        has_one = admin @ EscrowError::Unauthorized,
+    )]
+    pub config: Account<'info, Config>,
+}
+
+#[derive(Accounts)]
 #[instruction(escrow_id: [u8; 16])]
 pub struct LockFunds<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     /// CHECK: only its pubkey is recorded; it never signs here.
     pub receiver: UncheckedAccount<'info>,
-    /// CHECK: only its pubkey is recorded; validated to differ from payer/receiver.
-    pub arbiter: UncheckedAccount<'info>,
     /// Legacy SPL Token mints only (Account<Mint> enforces the Token program
     /// as owner). Token-2022 mints are rejected on purpose — see README.
     pub mint: Account<'info, Mint>,
+    #[account(seeds = [CONFIG_SEED], bump = config.bump)]
+    pub config: Account<'info, Config>,
 
     // Seeds include the payer so one user cannot squat another's escrow_id.
     #[account(
@@ -472,6 +548,8 @@ pub struct RaiseDispute<'info> {
 #[derive(Accounts)]
 pub struct ResolveDispute<'info> {
     pub signer: Signer<'info>,
+    #[account(seeds = [CONFIG_SEED], bump = config.bump)]
+    pub config: Account<'info, Config>,
     #[account(
         mut,
         seeds = [ESCROW_SEED, escrow.payer.as_ref(), escrow.escrow_id.as_ref()],
@@ -496,11 +574,20 @@ pub struct ResolveDispute<'info> {
 
 #[account]
 #[derive(InitSpace)]
+pub struct Config {
+    /// Can change the arbiter and hand over the admin role.
+    pub admin: Pubkey,
+    /// The one protocol-wide dispute resolver.
+    pub arbiter: Pubkey,
+    pub bump: u8,
+}
+
+#[account]
+#[derive(InitSpace)]
 pub struct Escrow {
     pub escrow_id: [u8; 16],
     pub payer: Pubkey,
     pub receiver: Pubkey,
-    pub arbiter: Pubkey,
     pub mint: Pubkey,
     /// Total deposited at creation.
     pub amount: u64,
@@ -544,7 +631,7 @@ pub enum EscrowError {
     InvalidMilestoneAmount,
     #[msg("Milestone sum must equal total amount")]
     MilestoneSumMismatch,
-    #[msg("Payer, receiver and arbiter must be three different accounts")]
+    #[msg("Payer, receiver and the protocol arbiter must be different accounts")]
     InvalidParties,
     #[msg("Arithmetic overflow")]
     MathOverflow,

@@ -28,3 +28,7 @@ anchor/target
 anchor/node_modules
 anchor/.anchor
 anchor/test-ledger
+
+# Python bytecode
+__pycache__/
+*.pyc
