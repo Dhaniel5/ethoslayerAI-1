@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Analyze from "./pages/Analyze";
 import Values from "./pages/Values";
 import Watchlist from "./pages/Watchlist";
+import ArbiterConsole from "./pages/ArbiterConsole";
 import Methodology from "./pages/Methodology";
 import Settlement from "./pages/Settlement";
 import EscrowDetail from "./pages/EscrowDetail";
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/analyze/history" element={<ProtectedRoute><AnalysisHistory /></ProtectedRoute>} />
             <Route path="/values" element={<ProtectedRoute><Values /></ProtectedRoute>} />
             <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
+            <Route path="/arbiter" element={<ArbiterConsole />} />
             <Route path="/methodology" element={<ProtectedRoute><Methodology /></ProtectedRoute>} />
             <Route path="/settlement" element={<ProtectedRoute><Settlement /></ProtectedRoute>} />
             <Route path="/settlement/new" element={<ProtectedRoute><CreateEscrowFlow /></ProtectedRoute>} />

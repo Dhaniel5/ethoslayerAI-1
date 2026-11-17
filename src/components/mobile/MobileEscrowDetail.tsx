@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import OnchainEscrowPanel from "@/components/escrow/OnchainEscrowPanel";
 import { StatusBadge } from "@/components/escrow/StatusBadges";
 import type { EscrowRow, MilestoneRow, EventRow } from "@/lib/escrow";
 import { shortAddr, escrowShareLink } from "@/lib/escrow";
@@ -47,12 +48,13 @@ interface Props {
   onApproveMilestone: (m: MilestoneRow) => void;
   onDispute: () => void;
   onDismissReleaseScreen: () => void;
+  onReload?: () => void;
 }
 
 export default function MobileEscrowDetail({
   escrow, milestones, events, disputeId, actionLoading, releasedTx,
   disputeReason, setDisputeReason, isReleasable, isDisputable,
-  onRelease, onApproveMilestone, onDispute, onDismissReleaseScreen,
+  onRelease, onApproveMilestone, onDispute, onDismissReleaseScreen, onReload,
 }: Props) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -182,6 +184,10 @@ export default function MobileEscrowDetail({
               ))}
             </div>
           </div>
+        )}
+
+        {escrow.onchain && (
+          <OnchainEscrowPanel escrow={escrow} milestones={milestones} disputeId={disputeId} onChanged={onReload ?? (() => undefined)} />
         )}
 
         {/* Activity */}

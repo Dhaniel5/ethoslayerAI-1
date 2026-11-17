@@ -157,12 +157,13 @@ npx ts-mocha -p ./tsconfig.json -t 1000000 --exit tests/ethos_escrow.ts
 `fetch failed` are network flakes: re-run just those tests with `-g "<name>"`. The
 wallet must be the program's upgrade authority (it becomes the Config admin).
 
-## Frontend integration (not done)
-Interface notes: escrow PDA `["escrow", payer, escrow_id]`; `lock_funds(escrow_id,
-amount, expiry, milestone_amounts)` takes the `config` account and no arbiter; the
-receiver's token account must exist before settlement (create the ATA in the same
-transaction); new env var for the program ID. Migrate `src/lib/escrow.ts` only after
-this version is built, tested and deployed. Never put private keys in the frontend.
+## Frontend integration (written; NOT yet tested on a device)
+The app can create and manage escrows in this program, behind `VITE_ONCHAIN_ESCROW=true` (off by default,
+so the custodial flow is unchanged). Code: `src/lib/escrowProgramCore.ts` (pure client), `src/lib/escrowOnchain.ts`
+(actions), `src/components/escrow/OnchainEscrowPanel.tsx` (detail screens), `src/pages/ArbiterConsole.tsx`
+(`/arbiter`). The client builds instructions by hand, so after ANY program change run
+`scripts/verify_client.ts` (compares it against Anchor's own encoding). Step-by-step phone testing:
+`docs/ONCHAIN_TESTING.md`. Needs the migration `supabase/migrations/20261109000000_onchain_escrow_flag.sql`.
 
 ## Before any mainnet release
 1. Rebuild, upgrade devnet, and get all 49 tests passing against *this* version.

@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 
-Object.defineProperty(window, "matchMedia", {
+// Only in browser-like environments (some test files opt into plain Node).
+if (typeof window !== "undefined") Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({
     matches: false,

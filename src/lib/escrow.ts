@@ -2,7 +2,7 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { supabase } from "@/integrations/supabase/client";
 import type { TrustResult } from "./trustScore";
-import { ESCROW_VAULT, ESCROW_VAULT_ADDRESS } from "./solanaConfig";
+import { ESCROW_VAULT, ESCROW_VAULT_ADDRESS, ONCHAIN_ESCROW_ENABLED } from "./solanaConfig";
 import { confirmSignature, sendAuddTransfer, type SignAndSend } from "./solanaTx";
 
 export type EscrowStatus =
@@ -35,6 +35,9 @@ export interface EscrowRow {
   payee_user_id: string | null;
   payee_wallet: string | null;
   pre_dispute_status: EscrowStatus | null;
+  /** true when the funds live in the on-chain escrow program (see escrowOnchain.ts) */
+  onchain?: boolean;
+  program_id?: string | null;
 }
 
 export interface MilestoneRow {
@@ -104,7 +107,6 @@ export async function createEscrow(
   input: CreateEscrowInput,
   chain: ChainContext,
 ): Promise<EscrowRow> {
-  assertVault();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Sign in required");
 
@@ -112,6 +114,14 @@ export async function createEscrow(
   if (signerKey !== input.payer_wallet.trim()) {
     throw new Error("Connected wallet does not match the payer wallet.");
   }
+
+  // Mode B: create the escrow in the on-chain program instead of the custodial vault.
+  if (ONCHAIN_ESCROW_ENABLED) {
+    const { createOnchainEscrow } = await import("./escrowOnchain");
+    return createOnchainEscrow(input, chain, auth.user.id);
+  }
+
+  assertVault(); // custodial path only
 
   // 1. Send & confirm on-chain transfer payer → vault FIRST. No DB row if chain fails.
   const sig = await sendAuddTransfer(

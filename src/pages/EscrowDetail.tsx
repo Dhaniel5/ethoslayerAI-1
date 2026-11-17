@@ -24,6 +24,7 @@ import { StatusBadge, TrustBadge } from "@/components/escrow/StatusBadges";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileEscrowDetail from "@/components/mobile/MobileEscrowDetail";
+import OnchainEscrowPanel from "@/components/escrow/OnchainEscrowPanel";
 
 export default function EscrowDetail() {
   const { id } = useParams();
@@ -120,8 +121,9 @@ export default function EscrowDetail() {
     }
   };
 
-  const isReleasable = escrow.status === "locked" || escrow.status === "in_review";
-  const isDisputable = ["locked", "in_review", "pending"].includes(escrow.status);
+  // On-chain escrows are driven by <OnchainEscrowPanel/>; the custodial buttons would act on the wrong thing.
+  const isReleasable = !escrow.onchain && (escrow.status === "locked" || escrow.status === "in_review");
+  const isDisputable = !escrow.onchain && ["locked", "in_review", "pending"].includes(escrow.status);
 
   if (isMobile) {
     return (
@@ -140,6 +142,7 @@ export default function EscrowDetail() {
         onApproveMilestone={handleApproveMilestone}
         onDispute={handleDispute}
         onDismissReleaseScreen={() => setReleasedTx(null)}
+        onReload={load}
       />
     );
   }
@@ -312,6 +315,8 @@ export default function EscrowDetail() {
               </CardContent>
             </Card>
           )}
+
+          {escrow.onchain && <OnchainEscrowPanel escrow={escrow} milestones={milestones} disputeId={disputeId} onChanged={load} />}
 
           {/* Timeline */}
           <Card className="glass-card mt-6">

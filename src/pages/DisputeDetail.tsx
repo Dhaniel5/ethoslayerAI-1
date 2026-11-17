@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { escrowAddress } from "@/lib/escrowOnchain";
 
 export default function DisputeDetail() {
   const { id } = useParams();
@@ -63,7 +64,9 @@ export default function DisputeDetail() {
   const token = (escrow as any)?.token_label ?? "AUDD";
   const pending = proposals.find((p) => p.status === "pending");
   const accepted = proposals.find((p) => p.status === "accepted");
-  const canSettle = dispute.status === "resolved" && !dispute.resolution_tx;
+  const isOnchain = !!(escrow as { onchain?: boolean } | null | undefined)?.onchain;
+  // On-chain escrows are settled by the protocol arbiter (see /arbiter), never by the custodial vault.
+  const canSettle = !isOnchain && dispute.status === "resolved" && !dispute.resolution_tx;
   const legacySoloDispute = !escrow?.payee_user_id;
   const canRespondToPending = !!role && (legacySoloDispute || pending?.proposed_by_role !== role);
 
@@ -163,6 +166,12 @@ export default function DisputeDetail() {
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />} Settle on-chain
                   </Button>
                 )}
+                {isOnchain && dispute.status === "resolved" && (
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>This escrow is held on-chain, so the protocol arbiter carries out the agreed split. Give the arbiter this escrow account address and the amounts above:</p>
+                    <p className="break-all text-foreground">{(() => { try { return escrowAddress(escrow!.payer_wallet, escrow!.id).toBase58(); } catch { return "unavailable"; } })()}</p>
+                  </div>
+                )}
                 {dispute.resolution_tx && (
                   <p className="text-xs text-muted-foreground break-all">Settled · {dispute.resolution_tx}</p>
                 )}
@@ -175,7 +184,7 @@ export default function DisputeDetail() {
               <Button size="sm" onClick={() => setProposeOpen(true)} className="gap-1.5">
                 <Handshake className="h-4 w-4" /> Propose resolution
               </Button>
-              {dispute.opened_by === userId && (
+              {dispute.opened_by === userId && !isOnchain && (
                 <Button size="sm" variant="outline" disabled={busy} className="gap-1.5"
                   onClick={() => act(() => withdrawDispute(dispute.id), "Dispute withdrawn")}>
                   <Undo2 className="h-4 w-4" /> Withdraw dispute
